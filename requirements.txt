@@ -1,0 +1,13 @@
+
+https://github.com/KurimuzonAkuma/pyrogram/archive/dev.zip
+TgCrypto
+python-dotenv
+redis
+colorlog
+aiohttp
+pytz
+datetime
+requests
+heroku3
+httpx
+gitpython

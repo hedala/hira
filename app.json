@@ -1,0 +1,95 @@
+{
+    "name": "Heda Bot",
+    "description": "Simple Telegram Bot",
+    "logo": "https://graph.org/file/defe8fc206669b297cfaf.jpg",
+    "keywords": [
+        "python3",
+        "telegram",
+        "bot",
+        "pyrogram"
+    ],
+    "stack": "container",
+    "env": {
+        "API_ID": {
+            "description": "Get this value from https://my.telegram.org",
+            "value": "",
+            "required": true
+        },
+        "API_HASH": {
+            "description": "Get this value from https://my.telegram.org",
+            "value": "",
+            "required": true
+        },
+        "BOT_TOKEN": {
+            "description": "A Bot's token from Botfather",
+            "value": "",
+            "required": true
+        },
+        "BOT_NAME": {
+            "description": "A name for your Bot",
+            "value": "",
+            "required": true
+        },
+        "REDIS_URL": {
+            "description": "Get a redis url from https://redislabs.com/try-free",
+            "value": "",
+            "required": true
+        },
+        "REDIS_PASSWORD": {
+            "description": "Get a redis password from https://redislabs.com/try-free",
+            "value": "",
+            "required": true
+        },
+        "OWNER_ID": {
+            "description": "The user id of user whom you would like to add as a OWNER.",
+            "value": "",
+            "required": true
+        },
+        "DEBUG": {
+            "description": "Enable or disable debug mode (true/false)",
+            "value": "",
+            "required": true
+        },
+        "LOG_TO_FILE": {
+            "description": "Enable or disable logging to file (true/false)",
+            "value": "",
+            "required": true
+        },
+        "LOG_FILE_PATH": {
+            "description": "Path for the log file",
+            "value": "",
+            "required": true
+        },
+        "LOG_CHAT_ID": {
+            "description": "Your Log Group ID, add your bot and promote as an admin with full rights!. Use only Group.",
+            "value": "",
+            "required": true
+        },
+        "HEROKU_API_KEY": {
+            "description": "Your Heroku account's API key",
+            "value": "",
+            "required": true
+        },
+        "HEROKU_APP_NAME": {
+            "description": "Your heroku app/bot's name",
+            "value": "",
+            "required": true
+        },
+        "UPSTREAM_BRANCH": {
+            "description": "Upstream Repo's Branch Name",
+            "value": "master",
+            "required": true
+        }
+    },
+    "buildpacks": [
+        {
+            "url": "heroku/python"
+        }
+    ],
+    "formation": {
+        "worker": {
+            "quantity": 1,
+            "size": "Eco"
+        }
+    }
+}
