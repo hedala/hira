@@ -10,7 +10,7 @@ async def main():
     log(__name__).info("Bot starting...")
     await heda.start()
     log(__name__).info("Bot started.")
-    print("Hi")
+    print("mrb")
     await heroku()
     await idle()
     log(__name__).info("Bot stopping...")
