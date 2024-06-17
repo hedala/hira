@@ -15,6 +15,7 @@ async def is_heroku():
 
 async def heroku():
     global HEROKU_APP
+    log(__name__).info(await is_heroku())
     if await is_heroku():
         if HerokuConfig.HEROKU_API_KEY and HerokuConfig.HEROKU_APP_NAME:
             try:
