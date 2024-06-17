@@ -3,6 +3,7 @@ from pyrogram import Client, enums
 
 from heda.config import BotConfig, DbConfig
 from heda.utils.paste import Paste
+from heda.utils.heroku import heroku
 from heda.utils.logging import log
 from heda.database.redis_db import RedisHandler
 
@@ -10,6 +11,8 @@ from heda.database.redis_db import RedisHandler
 VERSION = "1.0.0"
 
 log = log
+
+heroku()
 
 paste = Paste()
 
