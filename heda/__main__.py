@@ -3,18 +3,13 @@ import asyncio
 from pyrogram import idle
 
 from heda import heda, log
-from heda.utils.heroku import heroku, is_heroku
-
+from heda.config import LogConfig
 
 async def main():
     log(__name__).info("Bot starting...")
     await heda.start()
     log(__name__).info("Bot started.")
-    log(__name__).info("Merhaba")
-    import socket
-    log(__name__).info(socket.getfqdn())
-    await is_heroku()
-    await heroku()
+    await heda.send_message(LogConfig.LOG_CHAT_ID, "Bot started.")
     await idle()
     log(__name__).info("Bot stopping...")
     await heda.stop()
