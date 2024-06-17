@@ -79,6 +79,16 @@
             "description": "Upstream Repo's Branch Name",
             "value": "master",
             "required": true
+        },
+        "UPSTREAM_REPO": {
+            "description": "",
+            "value": "",
+            "required": true
+        },
+        "GIT_TOKEN=": {
+            "description": "",
+            "value": "",
+            "required": false
         }
     },
     "buildpacks": [
