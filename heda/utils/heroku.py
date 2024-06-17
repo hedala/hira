@@ -8,15 +8,14 @@ from heda.config import HerokuConfig
 
 HEROKU_APP = None
 
-async def is_heroku():
+def is_heroku():
     log(__name__).info(socket.getfqdn())
     return "heroku" in socket.getfqdn()
 
 
-async def heroku():
+def heroku():
     global HEROKU_APP
-    log(__name__).info(await is_heroku())
-    if await is_heroku():
+    if is_heroku():
         if HerokuConfig.HEROKU_API_KEY and HerokuConfig.HEROKU_APP_NAME:
             try:
                 Heroku = heroku3.from_key(
@@ -28,7 +27,9 @@ async def heroku():
                 log(__name__).info(
                     "Heroku App configured."
                 )
-            except BaseException:
-                log(__name__).warning(
-                    "Please make sure your Heroku API Key and Your App name are configured correctly in the heroku."
-                )
+            except Exception as e:
+                log(__name__).error(str(e))
+        else:
+            log(__name__).warning(
+                "Please make sure your Heroku API Key and Your App name are configured correctly in the heroku."
+            )
