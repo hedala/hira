@@ -11,6 +11,8 @@ async def main():
     await heda.start()
     log(__name__).info("Bot started.")
     log(__name__).info("Merhaba")
+    import socket
+    log(__name__).info(socket.getfqdn())
     await heroku()
     await idle()
     log(__name__).info("Bot stopping...")
