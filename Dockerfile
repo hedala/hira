@@ -1,18 +1,14 @@
+FROM nikolaik/python-nodejs:python3.9-nodejs18
 
-FROM python:3-slim
+RUN apt-get update -y && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV GIT_PYTHON_REFRESH=quiet
-
-RUN apt-get update && \
-    apt-get install -y gcc python3-dev libffi-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+COPY . /app/
 
 WORKDIR /app/
 
-COPY . .
+RUN pip3 install --no-cache-dir --upgrade --requirement requirements.txt
 
-RUN pip3 install --upgrade pip setuptools && \
-    pip3 install --no-cache-dir -r requirements.txt
-
-CMD ["bash", "start"]
+CMD bash start
