@@ -18,7 +18,9 @@ vars_ = {
     "OWNER_ID": "int",
     "HEROKU_API_KEY": "str",
     "HEROKU_APP_NAME": "str",
-    "UPSTREAM_BRANCH": "str"
+    "UPSTREAM_BRANCH": "str",
+    "UPSTREAM_REPO": "str",
+    "GIT_TOKEN": "str"
 }
 
 
@@ -73,3 +75,5 @@ class HerokuConfig:
     HEROKU_API_KEY = str(os.getenv("HEROKU_API_KEY"))
     HEROKU_APP_NAME = str(os.getenv("HEROKU_APP_NAME"))
     UPSTREAM_BRANCH = str(os.getenv("UPSTREAM_BRANCH"))
+    UPSTREAM_REPO = str(os.getenv("UPSTREAM_REPO"))
+    GIT_TOKEN = str(os.getenv("GIT_TOKEN"))
