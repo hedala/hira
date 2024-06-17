@@ -9,6 +9,7 @@ from heda.config import HerokuConfig
 HEROKU_APP = None
 
 async def is_heroku():
+    log(__name__).info(socket.getfqdn())
     return "heroku" in socket.getfqdn()
 
 
