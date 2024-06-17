@@ -1,4 +1,6 @@
-
+dnspython
+gitpython
+hachoir
 https://github.com/KurimuzonAkuma/pyrogram/archive/dev.zip
 TgCrypto
 python-dotenv
@@ -10,4 +12,3 @@ datetime
 requests
 heroku3
 httpx
-gitpython
