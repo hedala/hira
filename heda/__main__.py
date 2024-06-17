@@ -3,7 +3,7 @@ import asyncio
 from pyrogram import idle
 
 from heda import heda, log
-from heda.utils.heroku import heroku
+from heda.utils.heroku import heroku, is_heroku
 
 
 async def main():
@@ -13,6 +13,7 @@ async def main():
     log(__name__).info("Merhaba")
     import socket
     log(__name__).info(socket.getfqdn())
+    await is_heroku()
     await heroku()
     await idle()
     log(__name__).info("Bot stopping...")
