@@ -29,7 +29,7 @@ urllib3.disable_warnings(
 )
 async def get_log(_, message: Message):
     try:
-        if await is_heroku():
+        if is_heroku():
             if HEROKU_APP is None:
                 return await message.reply_text(
                     "Please make sure your Heroku API Key, Your App name are configured correctly in the heroku."
@@ -66,7 +66,7 @@ async def get_log(_, message: Message):
     & filters.user([DataConfig.OWNER_ID])
 )
 async def update_(client: Client, message: Message):
-    if await is_heroku():
+    if is_heroku():
         if HEROKU_APP is None:
             return await message.reply_text(
                 "Please make sure your Heroku API Key, Your App name are configured correctly in the heroku."
@@ -120,7 +120,7 @@ async def update_(client: Client, message: Message):
             disable_web_page_preview=True
         )
     os.system("git stash &> /dev/null && git pull")
-    if await is_heroku():
+    if is_heroku():
         try:
             await msg.edit(
                 f"{nrs.text}\n\nBot was updated successfully on Heroku! Now, wait for 2 - 3 mins until the bot restarts!"
