@@ -91,19 +91,16 @@ def format_response(changes, period, top=True):
 async def update_cache():
     while True:
         try:
-            # İlk olarak yükselenleri al
             for interval in ["15m", "1h", "4h", "1d"]:
                 changes = await get_movers(interval)
                 cache["top_gainers"][interval] = format_response(changes, interval, top=True)
-            await asyncio.sleep(20)  # 20 saniye bekle
-
-            # Ardından düşenleri al
-            for interval in ["15m", "1h", "4h", "1d"]:
-                changes = await get_movers(interval)
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
-            await asyncio.sleep(60)  # 1 dakika bekle
         except Exception as e:
             log.error(f"Cache update error: {str(e)}")
+            if "HTTP 429" in str(e):
+                log.warning("Rate limit exceeded. Waiting for 60 seconds.")
+                await asyncio.sleep(60)
+        await asyncio.sleep(10)
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
@@ -113,7 +110,7 @@ async def send_initial_buttons(client, message):
     ])
     await message.reply("Lütfen bir seçenek seçin:", reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"\b(top_losers|top_gainers|15m|1h|4h|1d)\b"))
+@Client.on_callback_query()
 async def handle_callback_query(client, callback_query):
     data = callback_query.data
     period = "1h"  # Default period
@@ -121,7 +118,6 @@ async def handle_callback_query(client, callback_query):
 
     if data in ["15m", "1h", "4h", "1d"]:
         period = data
-        top = "top_gainers" in callback_query.message.reply_markup.inline_keyboard[0][0].callback_data
     elif data == "top_gainers":
         top = True
     elif data == "top_losers":
