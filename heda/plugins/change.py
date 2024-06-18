@@ -2,8 +2,6 @@ from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import aiohttp
 import asyncio
-from datetime import datetime, timedelta
-import pytz
 import logging
 
 # Logger ayarları
@@ -20,9 +18,6 @@ cache = {
     "top_gainers": {},
     "top_losers": {}
 }
-
-# Cache update intervals (in seconds)
-CACHE_UPDATE_INTERVAL = 30
 
 def format_large_number(num):
     if num >= 1_000_000_000:
@@ -91,22 +86,26 @@ def format_response(changes, period, top=True):
         response_message += f"{symbol}: %{change:.2f}\n"
     return response_message
 
-async def update_cache():
-    while True:
-        try:
-            # İlk olarak yükselenleri al
-            for interval in ["15m", "1h", "4h", "1d"]:
-                changes = await get_movers(interval)
-                cache["top_gainers"][interval] = format_response(changes, interval, top=True)
-            await asyncio.sleep(CACHE_UPDATE_INTERVAL)  # 30 saniye bekle
+async def update_cache(interval, key, top=True):
+    try:
+        changes = await get_movers(interval)
+        cache[key][interval] = format_response(changes, interval, top)
+    except Exception as e:
+        log.error(f"Cache update error for {key} {interval}: {str(e)}")
 
-            # Ardından düşenleri al
-            for interval in ["15m", "1h", "4h", "1d"]:
-                changes = await get_movers(interval)
-                cache["top_losers"][interval] = format_response(changes, interval, top=False)
-            await asyncio.sleep(CACHE_UPDATE_INTERVAL)  # 30 saniye bekle
-        except Exception as e:
-            log.error(f"Cache update error: {str(e)}")
+async def periodic_cache_update():
+    while True:
+        await update_cache("15m", "top_gainers", top=True)
+        await update_cache("1h", "top_gainers", top=True)
+        await update_cache("4h", "top_gainers", top=True)
+        await update_cache("1d", "top_gainers", top=True)
+        await asyncio.sleep(30)  # 30 saniye bekle
+
+        await update_cache("15m", "top_losers", top=False)
+        await update_cache("1h", "top_losers", top=False)
+        await update_cache("4h", "top_losers", top=False)
+        await update_cache("1d", "top_losers", top=False)
+        await asyncio.sleep(30)  # 30 saniye bekle
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
@@ -119,22 +118,16 @@ async def send_initial_buttons(client, message):
 @Client.on_callback_query(filters.regex(r"\b(top_losers|top_gainers|15m|1h|4h|1d)\b"))
 async def handle_callback_query(client, callback_query):
     data = callback_query.data
+    period = "1h"  # Default period
+    top = True  # Default to top gainers
 
-    # Determine if the user wants to see top gainers or top losers
-    if data in ["top_gainers", "top_losers"]:
-        # Store the user's selection in the message's context
-        await client.set_chat_member(callback_query.message.chat.id, callback_query.message.id, data)
-        await callback_query.answer("Lütfen bir zaman aralığı seçin.")
-    else:
-        # Retrieve the user's previous selection from the message's context
-        previous_selection = await client.get_chat_member(callback_query.message.chat.id, callback_query.message.id)
-
-        if previous_selection:
-            top = previous_selection == "top_gainers"
-            period = data
-        else:
-            top = True  # Default to top gainers if no previous selection is found
-            period = "1h"  # Default period
+    if data in ["15m", "1h", "4h", "1d"]:
+        period = data
+        top = "top_gainers" in callback_query.message.reply_markup.inline_keyboard[0][0].callback_data
+    elif data == "top_gainers":
+        top = True
+    elif data == "top_losers":
+        top = False
 
     await callback_query.answer("Veriler getiriliyor, lütfen bekleyin...")
 
@@ -148,4 +141,4 @@ async def handle_callback_query(client, callback_query):
 
 # Start the cache update task
 loop = asyncio.get_event_loop()
-loop.create_task(update_cache())
+loop.create_task(periodic_cache_update())
