@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pytube import YouTube
@@ -142,3 +143,6 @@ async def handle_dw_command(client, message: Message):
 
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
+
+# Run the bot
+app.run()
