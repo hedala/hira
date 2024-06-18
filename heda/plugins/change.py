@@ -94,7 +94,7 @@ async def update_cache():
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
         except Exception as e:
             log.error(f"Cache update error: {str(e)}")
-        await asyncio.sleep(10)
+        await asyncio.sleep(30)
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
