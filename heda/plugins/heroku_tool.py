@@ -70,7 +70,7 @@ async def update_(client: Client, message: Message):
                 "Please make sure your Heroku API Key, Your App name are configured correctly in the heroku."
             )
     msg = await message.reply_text(
-        "Checking for available updates..."
+        "Mevcut güncellemeler kontrol ediliyor..."
     )
     try:
         repo = Repo()
