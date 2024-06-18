@@ -8,7 +8,7 @@ async def handle_start_command(_, message: Message):
     try:
         user_id = message.from_user.id
         start_message = (
-            f"Merhaba!, {message.from_user.mention}\n"
+            f"Merhaba!, naber {message.from_user.mention}\n"
             "**Şu anda aktif olan komutlar şunlardır;**\n"
             "`/p` Bu komut istediğiniz coinin anlık fiyatını vermektedir.\n"
             "`/wh` Bu komut belirttiğiniz şehrin hava durumu bilgilerini iletir."
