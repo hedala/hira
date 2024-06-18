@@ -167,7 +167,7 @@ async def get_all_districts_weather(il: str):
                 districts_weather.append(f"{district}: {temp}°C")
 
     if districts_weather:
-        return f"🌆 {il} İline Bağlı İlçelerin Sıcaklık Değerleri:\n" + "\n".join(districts_weather)
+        return f"🌆 **{il} İline Bağlı İlçelerin Sıcaklık Değerleri:**\n" + "\n".join(districts_weather)
     return None
 
 def convert_mgm_status_code(status: str):
