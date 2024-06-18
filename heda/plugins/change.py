@@ -113,7 +113,7 @@ async def send_initial_buttons(client, message):
     ])
     await message.reply("Lütfen bir seçenek seçin:", reply_markup=keyboard)
 
-@Client.on_callback_query()
+@Client.on_callback_query(filters.regex(r"\b(top_losers|top_gainers|15m|1h|4h|1d)\b"))
 async def handle_callback_query(client, callback_query):
     data = callback_query.data
     period = "1h"  # Default period
