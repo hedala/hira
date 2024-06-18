@@ -62,6 +62,7 @@ async def handle_select_callback(client, callback_query: CallbackQuery):
                 InlineKeyboardButton("Music", callback_data=f"dw_music|{video_id}")
             ]]
         )
+        await callback_query.message.delete()
         await callback_query.message.reply_text(
             "Ne tür bir içerik indirmek istiyorsunuz?",
             reply_markup=buttons,
@@ -84,7 +85,7 @@ async def handle_dw_callback(client, callback_query: CallbackQuery):
         video_id = data[1]
         url = f"https://www.youtube.com/watch?v={video_id}"
 
-        await callback_query.message.delete()  # Delete the previous message with buttons
+        await callback_query.message.delete()
         await callback_query.message.reply_text("İsteğiniz işleniyor, lütfen bekleyin...")
 
         yt = YouTube(url)
@@ -96,10 +97,14 @@ async def handle_dw_callback(client, callback_query: CallbackQuery):
             stream.download(filename=file_path)
             await callback_query.message.reply_video(video=open(file_path, 'rb'))
         elif dw_type == "dw_music":
-            stream = yt.streams.filter(only_audio=True).first()
+            stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
             file_path += ".mp3"
             stream.download(filename=file_path)
-            await callback_query.message.reply_audio(audio=open(file_path, 'rb'))
+            await callback_query.message.reply_audio(
+                audio=open(file_path, 'rb'),
+                title=yt.title,
+                performer=yt.author
+            )
 
         os.remove(file_path)
         log(__name__).info(
@@ -125,10 +130,12 @@ async def handle_dw_command(client, message: Message):
             await message.reply_text("Geçerli bir YouTube linki sağlayın.")
             return
 
+        video_id = youtube_link.split('v=')[1] if 'v=' in youtube_link else youtube_link.split('/')[-1]
+
         buttons = InlineKeyboardMarkup(
             [[
-                InlineKeyboardButton("Video", callback_data=f"dw_video|{youtube_link.split('v=')[1]}"),
-                InlineKeyboardButton("Music", callback_data=f"dw_music|{youtube_link.split('v=')[1]}")
+                InlineKeyboardButton("Video", callback_data=f"dw_video|{video_id}"),
+                InlineKeyboardButton("Music", callback_data=f"dw_music|{video_id}")
             ]]
         )
         await message.reply_text(
@@ -143,3 +150,4 @@ async def handle_dw_command(client, message: Message):
 
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
+        await message.reply_text("Bir hata oluştu. Lütfen tekrar deneyin.")
