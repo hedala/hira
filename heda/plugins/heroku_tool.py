@@ -13,7 +13,7 @@ from pyrogram.types import Message
 
 from heda import paste, log
 from heda.config import HerokuConfig, LogConfig, DataConfig
-from heda.utils.heroku import is_heroku
+from heda.utils.heroku import is_heroku, HEROKU_APP
 
 
 urllib3.disable_warnings(
