@@ -72,52 +72,40 @@ async def get_movers(interval):
     
     return changes
 
-def format_response(changes, period):
-    top_gainers = sorted(changes, key=lambda x: x[1], reverse=True)[:6]
-    top_losers = sorted(changes, key=lambda x: x[1])[:6]
-
-    response_message = f"**{period} İçerisinde En Çok Yükselen 6 Coin**\n"
-    for symbol, change in top_gainers:
+def format_response(changes, period, top=True):
+    sorted_changes = sorted(changes, key=lambda x: x[1], reverse=top)[:6]
+    response_message = f"**{period} İçerisinde En Çok {'Yükselen' if top else 'Düşen'} 6 Coin**\n"
+    for symbol, change in sorted_changes:
         response_message += f"{symbol}: %{change:.2f}\n"
-
-    response_message += f"\n**{period} İçerisinde En Çok Düşen 6 Coin**\n"
-    for symbol, change in top_losers:
-        response_message += f"{symbol}: %{change:.2f}\n"
-
     return response_message
 
 @Client.on_message(filters.command("ch"))
-async def send_buttons(client, message):
+async def send_initial_buttons(client, message):
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yükselenler", callback_data="gainers"),
-         InlineKeyboardButton("Düşenler", callback_data="losers")],
-        [InlineKeyboardButton("15M", callback_data="15m"),
-         InlineKeyboardButton("1H", callback_data="1h"),
-         InlineKeyboardButton("4H", callback_data="4h"),
-         InlineKeyboardButton("1D", callback_data="1d")]
+        [InlineKeyboardButton("Yükselenler", callback_data="top_gainers")],
+        [InlineKeyboardButton("Düşenler", callback_data="top_losers")],
+        [InlineKeyboardButton("15M", callback_data="15m"), InlineKeyboardButton("1H", callback_data="1h")],
+        [InlineKeyboardButton("4H", callback_data="4h"), InlineKeyboardButton("1D", callback_data="1d")]
     ])
     await message.reply("Lütfen bir seçenek seçin:", reply_markup=keyboard)
 
 @Client.on_callback_query()
 async def handle_callback_query(client, callback_query):
     data = callback_query.data
-    if data in ["gainers", "losers"]:
-        redis.set(f"{callback_query.from_user.id}_type", data)
-        await callback_query.answer(f"{data.capitalize()} seçildi. Lütfen zaman dilimini seçin.")
-    elif data in ["15m", "1h", "4h", "1d"]:
-        period = {"15m": "15 Dakika", "1h": "1 Saat", "4h": "4 Saat", "1d": "1 Gün"}[data]
-        interval = data
-        change_type = redis.get(f"{callback_query.from_user.id}_type").decode("utf-8")
-        
-        try:
-            changes = await get_movers(interval)
-            if change_type == "gainers":
-                response_message = format_response(changes, period)
-            else:
-                response_message = format_response(changes, period)
-            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN)
-        except Exception as e:
-            await callback_query.message.edit_text(f"Hata: {str(e)}. Lütfen daha sonra tekrar deneyin.")
-    else:
-        await callback_query.answer("Geçersiz seçim.")
-                                                                
+    user_data = callback_query.message.reply_markup.inline_keyboard
+    period = "1h"  # Default period
+    top = True  # Default to top gainers
+
+    if data in ["15m", "1h", "4h", "1d"]:
+        period = data
+    elif data == "top_gainers":
+        top = True
+    elif data == "top_losers":
+        top = False
+
+    try:
+        changes = await get_movers(period)
+        response_message = format_response(changes, period, top)
+        await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
+    except Exception as e:
+        await callback_query.message.edit_text(f"Hata: {str(e)}. Lütfen daha sonra tekrar deneyin.", reply_markup=callback_query.message.reply_markup)
