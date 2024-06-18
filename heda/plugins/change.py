@@ -127,14 +127,9 @@ async def handle_callback_query(client, callback_query):
     period = "1h"  # Default period
     top = True  # Default to top gainers
 
-    # Check the current state from the message text
-    if "Yükselen" in callback_query.message.text:
-        top = True
-    elif "Düşen" in callback_query.message.text:
-        top = False
-
     if data in ["15m", "1h", "4h", "1d"]:
         period = data
+        top = "top_gainers" in callback_query.message.reply_markup.inline_keyboard[0][0].callback_data
     elif data == "top_gainers":
         top = True
     elif data == "top_losers":
@@ -145,7 +140,12 @@ async def handle_callback_query(client, callback_query):
     try:
         response_message = cache["top_gainers" if top else "top_losers"].get(period, "Veri bulunamadı.")
         if callback_query.message.text != response_message:
-            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
+            # Kullanıcının seçimine göre butonları güncelle
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Yükselenler", callback_data="top_gainers"), InlineKeyboardButton("Düşenler", callback_data="top_losers")],
+                [InlineKeyboardButton("15M", callback_data="15m"), InlineKeyboardButton("1H", callback_data="1h"), InlineKeyboardButton("4H", callback_data="4h"), InlineKeyboardButton("1D", callback_data="1d")]
+            ])
+            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=keyboard)
     except Exception as e:
         log.error(f"Callback query error: {str(e)}")
         await callback_query.answer("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
@@ -153,3 +153,4 @@ async def handle_callback_query(client, callback_query):
 # Start the cache update task
 loop = asyncio.get_event_loop()
 loop.create_task(update_cache())
+            
