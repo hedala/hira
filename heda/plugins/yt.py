@@ -1,13 +1,16 @@
 import os
+import re
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from yt_dlp import YoutubeDL
+from pytube import YouTube
 from youtubesearchpython import VideosSearch
-
 from heda import redis, log
 
+# Regex to match YouTube URLs
+url_regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$"
+
 # Command to search YouTube and display top 5 results
-@Client.on_message(filters.command(["sr"]))
+@app.on_message(filters.command(["sr"]))
 async def handle_search_command(client, message: Message):
     try:
         query = " ".join(message.command[1:])
@@ -46,7 +49,7 @@ async def handle_search_command(client, message: Message):
         log(__name__).error(f"Error: {str(e)}")
 
 # Handle selection of a search result
-@Client.on_callback_query(filters.regex(r"^select\|"))
+@app.on_callback_query(filters.regex(r"^select\|"))
 async def handle_select_callback(client, callback_query: CallbackQuery):
     try:
         data = callback_query.data.split("|")
@@ -72,7 +75,7 @@ async def handle_select_callback(client, callback_query: CallbackQuery):
         log(__name__).error(f"Error: {str(e)}")
 
 # Handle download request (video or music)
-@Client.on_callback_query(filters.regex(r"^dw_(video|music)\|"))
+@app.on_callback_query(filters.regex(r"^dw_(video|music)\|"))
 async def handle_dw_callback(client, callback_query: CallbackQuery):
     try:
         data = callback_query.data.split("|")
@@ -80,25 +83,24 @@ async def handle_dw_callback(client, callback_query: CallbackQuery):
         video_id = data[1]
         url = f"https://www.youtube.com/watch?v={video_id}"
 
-        ydl_opts = {
-            'format': 'bestvideo+bestaudio' if dw_type == 'dw_video' else 'bestaudio',
-            'outtmpl': '%(title)s.%(ext)s',
-            'quiet': True
-        }
+        await callback_query.message.delete()  # Delete the previous message with buttons
+        await callback_query.message.reply_text("İsteğiniz işleniyor, lütfen bekleyin...")
 
-        with YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(url, download=True)
-            file_path = ydl.prepare_filename(info_dict)
+        yt = YouTube(url)
+        file_path = str(round(time.time() * 1000))
 
-            if dw_type == 'dw_music':
-                base, ext = os.path.splitext(file_path)
-                new_file_path = base + '.mp3'
-                os.rename(file_path, new_file_path)
-                file_path = new_file_path
+        if dw_type == "dw_video":
+            stream = yt.streams.filter(progressive=True).order_by('resolution').desc().first()
+            file_path += ".mp4"
+            stream.download(filename=file_path)
+            await callback_query.message.reply_video(video=open(file_path, 'rb'))
+        elif dw_type == "dw_music":
+            stream = yt.streams.filter(only_audio=True).first()
+            file_path += ".mp3"
+            stream.download(filename=file_path)
+            await callback_query.message.reply_audio(audio=open(file_path, 'rb'))
 
-        await callback_query.message.reply_document(file_path)
         os.remove(file_path)
-        
         log(__name__).info(
             f"{dw_type} download for {url} by {callback_query.from_user.full_name} completed."
         )
@@ -106,3 +108,37 @@ async def handle_dw_callback(client, callback_query: CallbackQuery):
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
         await callback_query.message.reply_text("Bir hata oluştu. Lütfen tekrar deneyin.")
+
+# Command to directly download YouTube videos
+@app.on_message(filters.command(["dw"]))
+async def handle_dw_command(client, message: Message):
+    try:
+        user_id = message.from_user.id
+        command_params = message.text.split()
+        if len(command_params) != 2:
+            await message.reply_text("Lütfen bir YouTube linki sağlayın. Örneğin: /dw <youtube_link>")
+            return
+
+        youtube_link = command_params[1]
+        if not re.match(url_regex, youtube_link):
+            await message.reply_text("Geçerli bir YouTube linki sağlayın.")
+            return
+
+        buttons = InlineKeyboardMarkup(
+            [[
+                InlineKeyboardButton("Video", callback_data=f"dw_video|{youtube_link.split('v=')[1]}"),
+                InlineKeyboardButton("Music", callback_data=f"dw_music|{youtube_link.split('v=')[1]}")
+            ]]
+        )
+        await message.reply_text(
+            "Ne tür bir içerik indirmek istiyorsunuz?",
+            reply_markup=buttons,
+            quote=True
+        )
+
+        log(__name__).info(
+            f"{message.command[0]} command was called by {message.from_user.full_name} with link {youtube_link}."
+        )
+
+    except Exception as e:
+        log(__name__).error(f"Error: {str(e)}")
