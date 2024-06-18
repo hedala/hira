@@ -1,12 +1,8 @@
 
 import os
-import shlex
 import shutil
-import socket
-import heroku3
 import asyncio
 import urllib3
-from typing import Tuple
 from datetime import datetime
 
 from git import Repo
