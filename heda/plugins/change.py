@@ -25,7 +25,7 @@ async def fetch_all_symbols():
         async with session.get(BINANCE_FUTURES_EXCHANGE_INFO_URL) as response:
             if response.status == 200:
                 data = await response.json()
-                symbols = [item['symbol'] for item in data['symbols']]
+                symbols = [item['symbol'] for item in data['symbols'] if item['symbol'].endswith('USDT')]
                 return symbols
             else:
                 raise Exception(f"Failed to fetch symbols: HTTP {response.status}")
@@ -82,10 +82,8 @@ def format_response(changes, period, top=True):
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yükselenler", callback_data="top_gainers")],
-        [InlineKeyboardButton("Düşenler", callback_data="top_losers")],
-        [InlineKeyboardButton("15M", callback_data="15m"), InlineKeyboardButton("1H", callback_data="1h")],
-        [InlineKeyboardButton("4H", callback_data="4h"), InlineKeyboardButton("1D", callback_data="1d")]
+        [InlineKeyboardButton("Yükselenler", callback_data="top_gainers"), InlineKeyboardButton("Düşenler", callback_data="top_losers")],
+        [InlineKeyboardButton("15M", callback_data="15m"), InlineKeyboardButton("1H", callback_data="1h"), InlineKeyboardButton("4H", callback_data="4h"), InlineKeyboardButton("1D", callback_data="1d")]
     ])
     await message.reply("Lütfen bir seçenek seçin:", reply_markup=keyboard)
 
@@ -102,6 +100,8 @@ async def handle_callback_query(client, callback_query):
         top = True
     elif data == "top_losers":
         top = False
+
+    await callback_query.answer("Veriler getiriliyor, lütfen bekleyin...")
 
     try:
         changes = await get_movers(period)
