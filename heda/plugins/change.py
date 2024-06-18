@@ -91,15 +91,17 @@ def format_response(changes, period, top=True):
 async def update_cache():
     while True:
         try:
-            for interval in ["15m", "1h", "4h", "1d"]:
+            intervals = ["15m", "1h", "4h", "1d"]
+            for interval in intervals:
                 changes = await get_movers(interval)
                 cache["top_gainers"][interval] = format_response(changes, interval, top=True)
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
+                if interval == "1d":
+                    await asyncio.sleep(300)  # 5 dakika bekle
+                else:
+                    await asyncio.sleep(15)  # 15 saniye bekle
         except Exception as e:
             log.error(f"Cache update error: {str(e)}")
-            if "HTTP 429" in str(e):
-                log.warning("Rate limit exceeded. Waiting for 60 seconds.")
-                await asyncio.sleep(60)
         await asyncio.sleep(10)
 
 @Client.on_message(filters.command("ch"))
@@ -136,3 +138,4 @@ async def handle_callback_query(client, callback_query):
 # Start the cache update task
 loop = asyncio.get_event_loop()
 loop.create_task(update_cache())
+                    
