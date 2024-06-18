@@ -2,24 +2,15 @@ from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import aiohttp
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
-import logging
 
-# Logger ayarları
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+from heda import redis, log
 
 # Binance Futures API URLs
 BINANCE_FUTURES_EXCHANGE_INFO_URL = "https://fapi.binance.com/fapi/v1/exchangeInfo"
 BINANCE_FUTURES_TICKER_API_URL = "https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
 BINANCE_FUTURES_KLINES_API_URL = "https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit=1"
-
-# Cache dictionary to store the results
-cache = {
-    "top_gainers": {},
-    "top_losers": {}
-}
 
 def format_large_number(num):
     if num >= 1_000_000_000:
@@ -88,20 +79,6 @@ def format_response(changes, period, top=True):
         response_message += f"{symbol}: %{change:.2f}\n"
     return response_message
 
-async def update_cache():
-    while True:
-        try:
-            for interval in ["15m", "1h", "4h", "1d"]:
-                changes = await get_movers(interval)
-                cache["top_gainers"][interval] = format_response(changes, interval, top=True)
-                cache["top_losers"][interval] = format_response(changes, interval, top=False)
-        except Exception as e:
-            log.error(f"Cache update error: {str(e)}")
-            if "HTTP 429" in str(e):
-                log.warning("Rate limit exceeded. Waiting for 60 seconds.")
-                await asyncio.sleep(60)
-        await asyncio.sleep(10)
-
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
     keyboard = InlineKeyboardMarkup([
@@ -113,6 +90,7 @@ async def send_initial_buttons(client, message):
 @Client.on_callback_query()
 async def handle_callback_query(client, callback_query):
     data = callback_query.data
+    user_data = callback_query.message.reply_markup.inline_keyboard
     period = "1h"  # Default period
     top = True  # Default to top gainers
 
@@ -126,13 +104,8 @@ async def handle_callback_query(client, callback_query):
     await callback_query.answer("Veriler getiriliyor, lütfen bekleyin...")
 
     try:
-        response_message = cache["top_gainers" if top else "top_losers"].get(period, "Veri bulunamadı.")
-        if callback_query.message.text != response_message:
-            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
+        changes = await get_movers(period)
+        response_message = format_response(changes, period, top)
+        await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
     except Exception as e:
-        log.error(f"Callback query error: {str(e)}")
-        await callback_query.answer("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
-
-# Start the cache update task
-loop = asyncio.get_event_loop()
-loop.create_task(update_cache())
+        await callback_query.message.edit_text(f"Hata: {str(e)}. Lütfen daha sonra tekrar deneyin.", reply_markup=callback_query.message.reply_markup)
