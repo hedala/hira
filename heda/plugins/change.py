@@ -132,7 +132,10 @@ async def handle_callback_query(client, callback_query):
     try:
         response_message = cache["top_gainers" if top else "top_losers"].get(period, "Veri bulunamadı.")
         if callback_query.message.text != response_message:
-            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
+            # Butonların callback_data'sını güncelle
+            new_keyboard = callback_query.message.reply_markup.inline_keyboard
+            new_keyboard[0][0].callback_data = "top_gainers" if top else "top_losers"
+            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(new_keyboard))
     except Exception as e:
         log.error(f"Callback query error: {str(e)}")
         await callback_query.answer("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
