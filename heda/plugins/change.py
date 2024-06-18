@@ -97,12 +97,11 @@ async def update_cache():
                 cache["top_gainers"][interval] = format_response(changes, interval, top=True)
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
                 if interval == "1d":
-                    await asyncio.sleep(300)  # 5 dakika bekle
+                    await asyncio.sleep(300)  # 5 dakika
                 else:
-                    await asyncio.sleep(15)  # 15 saniye bekle
+                    await asyncio.sleep(15)
         except Exception as e:
             log.error(f"Cache update error: {str(e)}")
-        await asyncio.sleep(10)
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
@@ -138,4 +137,3 @@ async def handle_callback_query(client, callback_query):
 # Start the cache update task
 loop = asyncio.get_event_loop()
 loop.create_task(update_cache())
-                    
