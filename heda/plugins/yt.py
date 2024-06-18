@@ -143,6 +143,3 @@ async def handle_dw_command(client, message: Message):
 
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
-
-# Run the bot
-app.run()
