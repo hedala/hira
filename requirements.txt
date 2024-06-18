@@ -15,3 +15,4 @@ httpx
 git+https://github.com/joetats/youtube_search@master
 git+https://github.com/alexmercerind/youtube-search-python@main
 git+https://github.com/yt-dlp/yt-dlp
+pytube==15.0.0
