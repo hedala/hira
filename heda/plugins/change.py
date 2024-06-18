@@ -4,8 +4,11 @@ import aiohttp
 import asyncio
 from datetime import datetime, timedelta
 import pytz
+import logging
 
-from heda import redis, log
+# Logger ayarları
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # Binance Futures API URLs
 BINANCE_FUTURES_EXCHANGE_INFO_URL = "https://fapi.binance.com/fapi/v1/exchangeInfo"
@@ -94,7 +97,10 @@ async def update_cache():
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
         except Exception as e:
             log.error(f"Cache update error: {str(e)}")
-        await asyncio.sleep(30)
+            if "HTTP 429" in str(e):
+                log.warning("Rate limit exceeded. Waiting for 60 seconds.")
+                await asyncio.sleep(60)
+        await asyncio.sleep(10)
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
@@ -129,4 +135,4 @@ async def handle_callback_query(client, callback_query):
 
 # Start the cache update task
 loop = asyncio.get_event_loop()
-loop.create_task(update_cache()) 
+loop.create_task(update_cache())
