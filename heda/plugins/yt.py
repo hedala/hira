@@ -2,7 +2,7 @@ import os
 import re
 import time
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
 from pytube import YouTube
 from youtubesearchpython import VideosSearch
 from heda import redis, log
@@ -92,10 +92,17 @@ async def handle_dw_callback(client, callback_query: CallbackQuery):
         file_path = str(round(time.time() * 1000))
 
         if dw_type == "dw_video":
-            stream = yt.streams.filter(adaptive=True).order_by('resolution').desc().first()
+            stream = yt.streams.filter(progressive=True).order_by('resolution').desc().first()
             file_path += ".mp4"
             stream.download(filename=file_path)
-            await callback_query.message.reply_video(video=open(file_path, 'rb'))
+            thumbnail_url = yt.thumbnail_url
+            video_duration = yt.length  # Duration in seconds
+            await client.send_video(
+                chat_id=callback_query.message.chat.id,
+                video=file_path,
+                caption=f"Title: {yt.title}\nDuration: {video_duration // 60} min {video_duration % 60} sec",
+                thumb=thumbnail_url
+            )
         elif dw_type == "dw_music":
             stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
             file_path += ".mp3"
