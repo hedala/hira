@@ -12,7 +12,7 @@ async def main():
     heroku()
     await heda.start()
     log(__name__).info("Bot started.")
-    await heda.send_message(LogConfig.LOG_CHAT_ID, "Bot started.")
+    await heda.send_message(LogConfig.LOG_CHAT_ID, "`Bot başlatıldı.`")
     await idle()
     log(__name__).info("Bot stopping...")
     await heda.stop()
