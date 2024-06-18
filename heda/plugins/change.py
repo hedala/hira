@@ -1,4 +1,5 @@
 from pyrogram import Client, filters, enums
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import aiohttp
 import asyncio
 from datetime import datetime
@@ -85,29 +86,38 @@ def format_response(changes, period):
 
     return response_message
 
-@Client.on_message(filters.command("h"))
-async def get_top_movers_hour(client, message):
-    try:
-        changes = await get_movers("1h")
-        response_message = format_response(changes, "1 Saat")
-        await message.reply(response_message, parse_mode=enums.ParseMode.MARKDOWN)
-    except Exception as e:
-        await message.reply(f"Hata: {str(e)}. Lütfen daha sonra tekrar deneyin.")
+@Client.on_message(filters.command("ch"))
+async def send_buttons(client, message):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Yükselenler", callback_data="gainers"),
+         InlineKeyboardButton("Düşenler", callback_data="losers")],
+        [InlineKeyboardButton("15M", callback_data="15m"),
+         InlineKeyboardButton("1H", callback_data="1h"),
+         InlineKeyboardButton("4H", callback_data="4h"),
+         InlineKeyboardButton("1D", callback_data="1d")]
+    ])
+    await message.reply("Lütfen bir seçenek seçin:", reply_markup=keyboard)
 
-@Client.on_message(filters.command("m15"))
-async def get_top_movers_15min(client, message):
-    try:
-        changes = await get_movers("15m")
-        response_message = format_response(changes, "15 Dakika")
-        await message.reply(response_message, parse_mode=enums.ParseMode.MARKDOWN)
-    except Exception as e:
-        await message.reply(f"Hata: {str(e)}. Lütfen daha sonra tekrar deneyin.")
-
-@Client.on_message(filters.command("h4"))
-async def get_top_movers_4hour(client, message):
-    try:
-        changes = await get_movers("4h")
-        response_message = format_response(changes, "4 Saat")
-        await message.reply(response_message, parse_mode=enums.ParseMode.MARKDOWN)
-    except Exception as e:
-        await message.reply(f"Hata: {str(e)}. Lütfen daha sonra tekrar deneyin.")
+@Client.on_callback_query()
+async def handle_callback_query(client, callback_query):
+    data = callback_query.data
+    if data in ["gainers", "losers"]:
+        redis.set(f"{callback_query.from_user.id}_type", data)
+        await callback_query.answer(f"{data.capitalize()} seçildi. Lütfen zaman dilimini seçin.")
+    elif data in ["15m", "1h", "4h", "1d"]:
+        period = {"15m": "15 Dakika", "1h": "1 Saat", "4h": "4 Saat", "1d": "1 Gün"}[data]
+        interval = data
+        change_type = redis.get(f"{callback_query.from_user.id}_type").decode("utf-8")
+        
+        try:
+            changes = await get_movers(interval)
+            if change_type == "gainers":
+                response_message = format_response(changes, period)
+            else:
+                response_message = format_response(changes, period)
+            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN)
+        except Exception as e:
+            await callback_query.message.edit_text(f"Hata: {str(e)}. Lütfen daha sonra tekrar deneyin.")
+    else:
+        await callback_query.answer("Geçersiz seçim.")
+                                                                
