@@ -121,13 +121,12 @@ async def handle_callback_query(client, callback_query):
 
     try:
         response_message = cache["top_gainers" if top else "top_losers"].get(period, "Veri bulunamadı.")
-        await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
+        if callback_query.message.text != response_message:
+            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
     except Exception as e:
         log.error(f"Callback query error: {str(e)}")
         await callback_query.answer("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
 
 # Start the cache update task
 loop = asyncio.get_event_loop()
-loop.create_task(update_cache())
-
-                
+loop.create_task(update_cache()) 
