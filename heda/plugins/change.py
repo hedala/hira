@@ -2,8 +2,6 @@ from pyrogram import Client, filters, enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import aiohttp
 import asyncio
-from datetime import datetime, timedelta
-import pytz
 import logging
 
 # Logger ayarları
@@ -88,22 +86,25 @@ def format_response(changes, period, top=True):
         response_message += f"{symbol}: %{change:.2f}\n"
     return response_message
 
-async def update_cache():
+async def update_cache_top_gainers():
     while True:
         try:
-            # İlk olarak yükselenleri al
             for interval in ["15m", "1h", "4h", "1d"]:
                 changes = await get_movers(interval)
                 cache["top_gainers"][interval] = format_response(changes, interval, top=True)
-            await asyncio.sleep(20)  # 20 saniye bekle
+            await asyncio.sleep(30)  # 30 saniye bekle
+        except Exception as e:
+            log.error(f"Top Gainers Cache update error: {str(e)}")
 
-            # Ardından düşenleri al
+async def update_cache_top_losers():
+    while True:
+        try:
             for interval in ["15m", "1h", "4h", "1d"]:
                 changes = await get_movers(interval)
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
-            await asyncio.sleep(60)  # 1 dakika bekle
+            await asyncio.sleep(30)  # 30 saniye bekle
         except Exception as e:
-            log.error(f"Cache update error: {str(e)}")
+            log.error(f"Top Losers Cache update error: {str(e)}")
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
@@ -117,11 +118,10 @@ async def send_initial_buttons(client, message):
 async def handle_callback_query(client, callback_query):
     data = callback_query.data
     period = "1h"  # Default period
-    top = True  # Default to top gainers
+    top = "top_gainers" in callback_query.message.reply_markup.inline_keyboard[0][0].callback_data
 
     if data in ["15m", "1h", "4h", "1d"]:
         period = data
-        top = "top_gainers" in callback_query.message.reply_markup.inline_keyboard[0][0].callback_data
     elif data == "top_gainers":
         top = True
     elif data == "top_losers":
@@ -137,7 +137,7 @@ async def handle_callback_query(client, callback_query):
         log.error(f"Callback query error: {str(e)}")
         await callback_query.answer("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
 
-# Start the cache update task
+# Start the cache update tasks
 loop = asyncio.get_event_loop()
-loop.create_task(update_cache())
-    
+loop.create_task(update_cache_top_gainers())
+loop.create_task(update_cache_top_losers())
