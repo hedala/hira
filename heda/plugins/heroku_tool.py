@@ -17,12 +17,12 @@ from pyrogram.types import Message
 
 from heda import paste, log
 from heda.config import HerokuConfig, LogConfig, DataConfig
+from heda.utils.heroku import is_heroku
 
 
 urllib3.disable_warnings(
     urllib3.exceptions.InsecureRequestWarning
 )
-
 
 
 @Client.on_message(
