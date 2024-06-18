@@ -44,12 +44,14 @@ def strtobool(val):
     else:
         raise ValueError("invalid truth value %r" % val)
 
-
+"""
 if os.path.exists("config.env"):
     load_dotenv("config.env")
 else:
     make_config()
     load_dotenv("config.env")
+"""
+load_dotenv()
 
 
 class BotConfig:
