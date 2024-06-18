@@ -7,9 +7,9 @@ from heda.config import LogConfig
 from heda.utils.heroku import heroku, git
 
 async def main():
+    log(__name__).info("Bot starting...")
     await git()
     heroku()
-    log(__name__).info("Bot starting...")
     await heda.start()
     log(__name__).info("Bot started.")
     await heda.send_message(LogConfig.LOG_CHAT_ID, "Bot started.")
