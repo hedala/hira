@@ -15,14 +15,15 @@ BINANCE_FUTURES_EXCHANGE_INFO_URL = "https://fapi.binance.com/fapi/v1/exchangeIn
 BINANCE_FUTURES_TICKER_API_URL = "https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
 BINANCE_FUTURES_KLINES_API_URL = "https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit=1"
 
-# Cache dictionary to store the results and timestamp
+# Cache dictionary to store the results and timestamps
 cache = {
     "top_gainers": {},
     "top_losers": {},
     "timestamp": None
 }
 
-user_choices = {}
+# User state to track primary button selection
+user_state = {}
 
 def format_large_number(num):
     if num >= 1_000_000_000:
@@ -94,17 +95,11 @@ def format_response(changes, period, top=True):
 async def update_cache():
     while True:
         try:
-            # İlk olarak yükselenleri al
             for interval in ["15m", "1h", "4h", "1d"]:
                 changes = await get_movers(interval)
                 cache["top_gainers"][interval] = format_response(changes, interval, top=True)
-            await asyncio.sleep(20)  # 20 saniye bekle
-
-            # Ardından düşenleri al
-            for interval in ["15m", "1h", "4h", "1d"]:
-                changes = await get_movers(interval)
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
-            cache["timestamp"] = datetime.utcnow()  # Update cache timestamp
+            cache["timestamp"] = datetime.utcnow()
             await asyncio.sleep(60)  # 1 dakika bekle
         except Exception as e:
             log.error(f"Cache update error: {str(e)}")
@@ -112,45 +107,39 @@ async def update_cache():
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
     now = datetime.utcnow()
-    if cache["timestamp"] and (now - cache["timestamp"]).total_seconds() < 60:
-        log.info("Using cached data")
+    if cache["timestamp"] and (now - cache["timestamp"]) < timedelta(minutes=1):
+        cache_is_fresh = True
     else:
-        log.info("Refreshing cache data")
+        cache_is_fresh = False
+
+    if not cache_is_fresh:
         await update_cache()
-        
-    user_choices[message.chat.id] = {"main": None, "interval": None}
-    
+
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Yükselenler", callback_data="top_gainers"), InlineKeyboardButton("Düşenler", callback_data="top_losers")],
         [InlineKeyboardButton("15M", callback_data="15m"), InlineKeyboardButton("1H", callback_data="1h"), InlineKeyboardButton("4H", callback_data="4h"), InlineKeyboardButton("1D", callback_data="1d")]
     ])
+    user_state[message.from_user.id] = {"top": True, "period": "1h"}
     await message.reply("Lütfen bir seçenek seçin:", reply_markup=keyboard)
 
 @Client.on_callback_query(filters.regex(r"\b(top_losers|top_gainers|15m|1h|4h|1d)\b"))
 async def handle_callback_query(client, callback_query):
     data = callback_query.data
-    chat_id = callback_query.message.chat.id
+    user_id = callback_query.from_user.id
 
     if data in ["top_gainers", "top_losers"]:
-        user_choices[chat_id]["main"] = data
-        await callback_query.answer(f"{data} seçildi. Zaman aralığı seçin.")
+        user_state[user_id]["top"] = (data == "top_gainers")
     elif data in ["15m", "1h", "4h", "1d"]:
-        user_choices[chat_id]["interval"] = data
-        main_choice = user_choices[chat_id]["main"]
-        
-        if not main_choice:
-            await callback_query.answer("Lütfen önce ana bir seçim yapın.", show_alert=True)
-            return
-        
-        await callback_query.answer("Veriler getiriliyor, lütfen bekleyin...")
-        
-        try:
-            response_message = cache[main_choice].get(data, "Veri bulunamadı.")
-            if callback_query.message.text != response_message:
-                await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
-        except Exception as e:
-            log.error(f"Callback query error: {str(e)}")
-            await callback_query.answer("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
+        user_state[user_id]["period"] = data
+
+    top = user_state[user_id]["top"]
+    period = user_state[user_id]["period"]
+
+    response_message = cache["top_gainers" if top else "top_losers"].get(period, "Veri bulunamadı.")
+    await callback_query.answer("Veriler getiriliyor, lütfen bekleyin...")
+    
+    if callback_query.message.text != response_message:
+        await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
 
 # Start the cache update task
 loop = asyncio.get_event_loop()
