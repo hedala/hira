@@ -89,21 +89,29 @@ def format_response(changes, period, top=True):
     return response_message
 
 async def update_cache():
-    while True:
-        try:
-            # İlk olarak yükselenleri al
+    try:
+        # İlk olarak yükselenleri al
+        for interval in ["15m", "1h", "4h", "1d"]:
+            changes = await get_movers(interval)
+            cache["top_gainers"][interval] = format_response(changes, interval, top=True)
+        await asyncio.sleep(20)  # 20 saniye bekle
+
+        # Ardından düşenleri al
+        for interval in ["15m", "1h", "4h", "1d"]:
+            changes = await get_movers(interval)
+            cache["top_losers"][interval] = format_response(changes, interval, top=False)
+        await asyncio.sleep(60)  # 1 dakika bekle
+
+        # Sonrasında hepsini 1 dakika arayla güncelle
+        while True:
             for interval in ["15m", "1h", "4h", "1d"]:
                 changes = await get_movers(interval)
                 cache["top_gainers"][interval] = format_response(changes, interval, top=True)
-            await asyncio.sleep(20)  # 20 saniye bekle
-
-            # Ardından düşenleri al
-            for interval in ["15m", "1h", "4h", "1d"]:
                 changes = await get_movers(interval)
                 cache["top_losers"][interval] = format_response(changes, interval, top=False)
             await asyncio.sleep(60)  # 1 dakika bekle
-        except Exception as e:
-            log.error(f"Cache update error: {str(e)}")
+    except Exception as e:
+        log.error(f"Cache update error: {str(e)}")
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
@@ -119,9 +127,14 @@ async def handle_callback_query(client, callback_query):
     period = "1h"  # Default period
     top = True  # Default to top gainers
 
+    # Check the current state from the message text
+    if "Yükselen" in callback_query.message.text:
+        top = True
+    elif "Düşen" in callback_query.message.text:
+        top = False
+
     if data in ["15m", "1h", "4h", "1d"]:
         period = data
-        top = "top_gainers" in callback_query.message.reply_markup.inline_keyboard[0][0].callback_data
     elif data == "top_gainers":
         top = True
     elif data == "top_losers":
@@ -132,10 +145,7 @@ async def handle_callback_query(client, callback_query):
     try:
         response_message = cache["top_gainers" if top else "top_losers"].get(period, "Veri bulunamadı.")
         if callback_query.message.text != response_message:
-            # Butonların callback_data'sını güncelle
-            new_keyboard = callback_query.message.reply_markup.inline_keyboard
-            new_keyboard[0][0].callback_data = "top_gainers" if top else "top_losers"
-            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(new_keyboard))
+            await callback_query.message.edit_text(response_message, parse_mode=enums.ParseMode.MARKDOWN, reply_markup=callback_query.message.reply_markup)
     except Exception as e:
         log.error(f"Callback query error: {str(e)}")
         await callback_query.answer("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
