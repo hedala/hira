@@ -10,7 +10,7 @@ from heda import redis, log
 url_regex = r"^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$"
 
 # Command to search YouTube and display top 5 results
-@app.on_message(filters.command(["sr"]))
+@Client.on_message(filters.command(["sr"]))
 async def handle_search_command(client, message: Message):
     try:
         query = " ".join(message.command[1:])
@@ -49,7 +49,7 @@ async def handle_search_command(client, message: Message):
         log(__name__).error(f"Error: {str(e)}")
 
 # Handle selection of a search result
-@app.on_callback_query(filters.regex(r"^select\|"))
+@Client.on_callback_query(filters.regex(r"^select\|"))
 async def handle_select_callback(client, callback_query: CallbackQuery):
     try:
         data = callback_query.data.split("|")
@@ -75,7 +75,7 @@ async def handle_select_callback(client, callback_query: CallbackQuery):
         log(__name__).error(f"Error: {str(e)}")
 
 # Handle download request (video or music)
-@app.on_callback_query(filters.regex(r"^dw_(video|music)\|"))
+@Client.on_callback_query(filters.regex(r"^dw_(video|music)\|"))
 async def handle_dw_callback(client, callback_query: CallbackQuery):
     try:
         data = callback_query.data.split("|")
@@ -110,7 +110,7 @@ async def handle_dw_callback(client, callback_query: CallbackQuery):
         await callback_query.message.reply_text("Bir hata oluştu. Lütfen tekrar deneyin.")
 
 # Command to directly download YouTube videos
-@app.on_message(filters.command(["dw"]))
+@Client.on_message(filters.command(["dw"]))
 async def handle_dw_command(client, message: Message):
     try:
         user_id = message.from_user.id
