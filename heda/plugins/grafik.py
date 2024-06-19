@@ -63,16 +63,16 @@ async def generate_chart(symbol, interval):
     rsi = calculate_rsi(df['close'].values)
     
     # Customize chart style for night mode
-    mc = mpf.make_marketcolors(up='darkgreen', down='darkred', edge='inherit', wick='inherit', volume='inherit')
+    mc = mpf.make_marketcolors(up='darkgreen', down='darkred', edge='inherit', wick='inherit', volume='grey')
     s = mpf.make_mpf_style(marketcolors=mc, figcolor='#333333', gridcolor='#444444')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(10, 6))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(10, 6), tight_layout=True)
     
-    # Adjust volume size
-    ax[0].set_ylim(bottom=0)
+    # Add RSI value to the right bottom of the chart
+    ax[0].text(0.95, 0.05, f'RSI: {rsi:.2f}', horizontalalignment='right', verticalalignment='bottom', transform=ax[0].transAxes, fontsize=12, color='lightblue', bbox=dict(facecolor='black', alpha=0.8))
     
-    # Add RSI value to bottom right
-    ax[1].text(0.95, 0.05, f'RSI: {rsi:.2f}', horizontalalignment='right', verticalalignment='bottom', transform=ax[1].transAxes, fontsize=10, color='lightgrey', bbox=dict(facecolor='black', alpha=0.7))
+    # Reduce volume size
+    ax[2].set_ylim(bottom=0)
     
     # Save chart
     os.makedirs('charts', exist_ok=True)
@@ -108,6 +108,6 @@ async def handle_chart_callback(client, callback_query):
     
     chart_path = await generate_chart(symbol, interval)
     
-    # Update existing message instead of deleting and sending a new one
-    await callback_query.message.edit_text(f"{symbol} - {TIMEFRAMES[interval]}\n\n![{symbol} - {TIMEFRAMES[interval]}](data:{chart_path})", parse_mode="markdown", reply_markup=callback_query.message.reply_markup)
+    # Update the existing message instead of deleting and sending a new one
+    await callback_query.message.edit_photo(photo=chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
     
