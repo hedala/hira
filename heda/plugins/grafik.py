@@ -6,6 +6,7 @@ import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 import numpy as np
+import os  # Eklenen kısım
 
 # Logger ayarları
 import logging
@@ -65,6 +66,10 @@ async def generate_chart(symbol, interval):
     
     # Display RSI
     ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='blue', bbox=dict(facecolor='white', alpha=0.8))
+    
+    # charts klasörünü oluştur
+    if not os.path.exists('charts'):
+        os.makedirs('charts')
     
     chart_path = f'charts/{symbol}_{interval}.png'
     fig.savefig(chart_path)
