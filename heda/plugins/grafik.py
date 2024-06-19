@@ -6,7 +6,7 @@ import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 import numpy as np
-import os  # Eklenen kısım
+import os
 
 # Logger ayarları
 import logging
@@ -53,7 +53,7 @@ def calculate_change(open_price, current_price):
 
 async def generate_chart(symbol, interval):
     async with aiohttp.ClientSession() as session:
-        kline_data = await fetch_kline(session, symbol, interval, limit=50)
+        kline_data = await fetch_kline(session, symbol, interval, limit=100)
     
     df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -62,17 +62,20 @@ async def generate_chart(symbol, interval):
     
     rsi = calculate_rsi(df['close'].values)
     
-    fig, ax = mpf.plot(df, type='candle', style='charles', returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True)
+    # Customize chart style
+    mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', wick='inherit', volume='inherit')
+    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#f2f2f2', gridcolor='#d9d9d9')
+    
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(8, 6))
     
     # Display RSI
     ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='blue', bbox=dict(facecolor='white', alpha=0.8))
     
     # charts klasörünü oluştur
-    if not os.path.exists('charts'):
-        os.makedirs('charts')
+    os.makedirs('charts', exist_ok=True)
     
     chart_path = f'charts/{symbol}_{interval}.png'
-    fig.savefig(chart_path)
+    fig.savefig(chart_path, dpi=100, bbox_inches='tight')
     plt.close(fig)
     
     return chart_path
@@ -104,3 +107,4 @@ async def handle_chart_callback(client, callback_query):
     
     await callback_query.message.delete()  # Remove the old message with the chart
     await callback_query.message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
+        
