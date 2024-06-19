@@ -1,53 +1,101 @@
-from pyrogram import Client, filters, enums
+from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import aiohttp
 import asyncio
+import pandas as pd
+import mplfinance as mpf
 import matplotlib.pyplot as plt
-import io
-from datetime import datetime
+import numpy as np
+
+# Logger ayarları
+import logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # Binance Futures API URLs
+BINANCE_FUTURES_TICKER_API_URL = "https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
 BINANCE_FUTURES_KLINES_API_URL = "https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
 
-async def fetch_klines(symbol, interval, limit=60):
+# Chart settings
+TIMEFRAMES = {"15m": "15 minute", "1h": "1 hour", "4h": "4 hour", "1d": "1 day"}
+
+# RSI calculation
+def calculate_rsi(prices, period=14):
+    delta = np.diff(prices)
+    gain = np.where(delta > 0, delta, 0)
+    loss = np.where(delta < 0, -delta, 0)
+    avg_gain = np.convolve(gain, np.ones(period), 'valid') / period
+    avg_loss = np.convolve(loss, np.ones(period), 'valid') / period
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi[-1] if len(rsi) > 0 else None
+
+async def fetch_latest_price(session, symbol):
+    url = BINANCE_FUTURES_TICKER_API_URL.format(symbol=symbol)
+    async with session.get(url) as response:
+        if response.status == 200:
+            data = await response.json()
+            return float(data['price'])
+        else:
+            raise Exception(f"Failed to fetch latest price for {symbol}: HTTP {response.status}")
+
+async def fetch_kline(session, symbol, interval, limit=1):
     url = BINANCE_FUTURES_KLINES_API_URL.format(symbol=symbol, interval=interval, limit=limit)
+    async with session.get(url) as response:
+        if response.status == 200:
+            return await response.json()
+        else:
+            raise Exception(f"Failed to fetch klines for {symbol}: HTTP {response.status}")
+
+def calculate_change(open_price, current_price):
+    return ((current_price - open_price) / open_price) * 100
+
+async def generate_chart(symbol, interval):
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                raise Exception(f"Failed to fetch klines for {symbol}: HTTP {response.status}")
-
-def plot_chart(klines, symbol):
-    timestamps = [datetime.fromtimestamp(int(k[0]) / 1000) for k in klines]
-    prices = [float(k[4]) for k in klines]  # Closing prices
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(timestamps, prices, label=f'{symbol} Price')
-    plt.xlabel('Time')
-    plt.ylabel('Price')
-    plt.title(f'{symbol} 1H Price Chart')
-    plt.legend()
-    plt.grid(True)
-
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plt.close()
-
-    return buffer
+        kline_data = await fetch_kline(session, symbol, interval, limit=50)
+    
+    df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.set_index('timestamp', inplace=True)
+    df = df.astype(float)
+    
+    rsi = calculate_rsi(df['close'].values)
+    
+    fig, ax = mpf.plot(df, type='candle', style='charles', returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True)
+    
+    # Display RSI
+    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='blue', bbox=dict(facecolor='white', alpha=0.8))
+    
+    chart_path = f'charts/{symbol}_{interval}.png'
+    fig.savefig(chart_path)
+    plt.close(fig)
+    
+    return chart_path
 
 @Client.on_message(filters.command("grafik"))
-async def send_price_chart(client, message):
-    try:
-        symbol = message.text.split()[1].upper() + 'USDT'
-        interval = '1h'
-        
-        klines = await fetch_klines(symbol, interval, limit=60)
-        chart_buffer = plot_chart(klines, symbol)
-        
-        await message.reply_photo(chart_buffer, caption=f"{symbol} 1H Price Chart")
-    except IndexError:
-        await message.reply("Lütfen bir coin sembolü belirtin. Örnek: /grafik BTC")
-    except Exception as e:
-        await message.reply(f"Hata: {str(e)}")
+async def send_chart(client, message):
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply("Lütfen bir coin sembolü belirtin (örn: /grafik BTC).")
+        return
+    
+    symbol = args[1].upper() + "USDT"
+    interval = "1h"  # Default interval
+    
+    chart_path = await generate_chart(symbol, interval)
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("15M", callback_data=f"{symbol}_15m"), InlineKeyboardButton("1H", callback_data=f"{symbol}_1h"), InlineKeyboardButton("4H", callback_data=f"{symbol}_4h"), InlineKeyboardButton("1D", callback_data=f"{symbol}_1d")]
+    ])
+    
+    await message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=keyboard)
+
+@Client.on_callback_query(filters.regex(r"\b([A-Z]+USDT)_(15m|1h|4h|1d)\b"))
+async def handle_chart_callback(client, callback_query):
+    data = callback_query.data
+    symbol, interval = data.split('_')
+    
+    chart_path = await generate_chart(symbol, interval)
+    
+    await callback_query.message.delete()  # Remove the old message with the chart
+    await callback_query.message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
