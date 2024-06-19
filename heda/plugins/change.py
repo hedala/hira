@@ -92,17 +92,33 @@ def format_response(changes, period, top=True):
         response_message += f"{symbol}: %{change:.2f}\n"
     return response_message
 
-async def update_cache():
+async def update_cache(interval, top=True):
+    try:
+        changes = await get_movers(interval)
+        category = "top_gainers" if top else "top_losers"
+        cache[category][interval] = format_response(changes, interval, top=top)
+        cache["timestamp"] = datetime.utcnow()
+    except Exception as e:
+        log.error(f"Cache update error: {str(e)}")
+
+async def periodic_cache_update():
     while True:
-        try:
-            for interval in ["15m", "1h", "4h", "1d"]:
-                changes = await get_movers(interval)
-                cache["top_gainers"][interval] = format_response(changes, interval, top=True)
-                cache["top_losers"][interval] = format_response(changes, interval, top=False)
-            cache["timestamp"] = datetime.utcnow()
-            await asyncio.sleep(60)  # 1 dakika bekle
-        except Exception as e:
-            log.error(f"Cache update error: {str(e)}")
+        await update_cache("15m", top=True)
+        await asyncio.sleep(20)
+        await update_cache("15m", top=False)
+        await asyncio.sleep(20)
+        await update_cache("1h", top=True)
+        await asyncio.sleep(20)
+        await update_cache("1h", top=False)
+        await asyncio.sleep(20)
+        await update_cache("4h", top=True)
+        await asyncio.sleep(20)
+        await update_cache("4h", top=False)
+        await asyncio.sleep(20)
+        await update_cache("1d", top=True)
+        await asyncio.sleep(180)
+        await update_cache("1d", top=False)
+        await asyncio.sleep(180)
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
@@ -113,7 +129,8 @@ async def send_initial_buttons(client, message):
         cache_is_fresh = False
 
     if not cache_is_fresh:
-        await update_cache()
+        await update_cache("1h", top=True)
+        await update_cache("1h", top=False)
 
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Yükselenler", callback_data="top_gainers"), InlineKeyboardButton("Düşenler", callback_data="top_losers")],
@@ -143,4 +160,4 @@ async def handle_callback_query(client, callback_query):
 
 # Start the cache update task
 loop = asyncio.get_event_loop()
-loop.create_task(update_cache())
+loop.create_task(periodic_cache_update())
