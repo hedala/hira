@@ -117,6 +117,3 @@ async def handle_chart_callback(client, callback_query):
     chart_path = await generate_chart(symbol, interval)
     
     await callback_query.message.edit_media(InputMediaPhoto(chart_path), caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
-
-# Assuming that 'app' is the instance of the Client
-app.run()
