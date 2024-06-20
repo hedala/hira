@@ -40,7 +40,7 @@ async def fetch_latest_price(session, symbol):
         else:
             raise Exception(f"Failed to fetch latest price for {symbol}: HTTP {response.status}")
 
-async def fetch_kline(session, symbol, interval, limit=100):
+async def fetch_kline(session, symbol, interval, limit=1):
     url = BINANCE_FUTURES_KLINES_API_URL.format(symbol=symbol, interval=interval, limit=limit)
     async with session.get(url) as response:
         if response.status == 200:
@@ -54,6 +54,7 @@ def calculate_change(open_price, current_price):
 async def generate_chart(symbol, interval):
     async with aiohttp.ClientSession() as session:
         kline_data = await fetch_kline(session, symbol, interval, limit=100)
+        current_price = await fetch_latest_price(session, symbol)
     
     df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -62,28 +63,30 @@ async def generate_chart(symbol, interval):
     
     rsi = calculate_rsi(df['close'].values)
     
-    # Fetch the latest price to draw the line
-    latest_price = df['close'].iloc[-1]
-
-    # Customize chart style
+    # Customize chart style with the new color scheme
     mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', wick='inherit', volume='inherit')
-    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#040720', gridcolor='#d9d9d9', facecolor='#040720')
+    s = mpf.make_mpf_style(
+        marketcolors=mc, 
+        figcolor='#040720', 
+        gridcolor='#d9d9d9',
+        facecolor='#040720',
+        edgecolor='#d9d9d9'
+    )
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(10, 6))
-    fig.set_dpi(100)
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
     
     # Display RSI
     ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#040720', alpha=0.8))
     
-    # Draw a line for the latest price
-    ax[0].axhline(latest_price, color='white', linestyle='--')
-    ax[0].text(df.index[-1], latest_price, f'{latest_price:.2f}', color='white', verticalalignment='bottom')
+    # Draw a line at the latest price
+    last_close = df['close'].iloc[-1]
+    ax[0].axhline(last_close, color='blue', linestyle='--')
+    ax[0].text(df.index[-1], last_close, f'{last_close:.2f}', color='white', fontsize=10, verticalalignment='bottom')
 
-    # Create charts directory if it doesn't exist
+    # Save chart
     os.makedirs('charts', exist_ok=True)
-    
     chart_path = f'charts/{symbol}_{interval}.png'
-    fig.savefig(chart_path, bbox_inches='tight')
+    fig.savefig(chart_path, dpi=100, bbox_inches='tight')
     plt.close(fig)
     
     return chart_path
@@ -113,5 +116,4 @@ async def handle_chart_callback(client, callback_query):
     
     chart_path = await generate_chart(symbol, interval)
     
-    await callback_query.message.delete()  # Remove the old message with the chart
-    await callback_query.message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
+    await callback_query.message.edit_media(InputMediaPhoto(chart_path), caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
