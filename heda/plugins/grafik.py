@@ -69,7 +69,7 @@ async def generate_chart(symbol, interval):
     mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', wick='inherit', volume='inherit')
     s = mpf.make_mpf_style(marketcolors=mc, figcolor='#040720', gridcolor='#d9d9d9', facecolor='#040720')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(10, 6))
     
     # Display RSI
     ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#040720', alpha=0.8))
