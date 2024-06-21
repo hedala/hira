@@ -1,5 +1,5 @@
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import aiohttp
 import asyncio
 import pandas as pd
@@ -54,7 +54,6 @@ def calculate_change(open_price, current_price):
 async def generate_chart(symbol, interval):
     async with aiohttp.ClientSession() as session:
         kline_data = await fetch_kline(session, symbol, interval, limit=100)
-        current_price = await fetch_latest_price(session, symbol)
     
     df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -62,29 +61,25 @@ async def generate_chart(symbol, interval):
     df = df.astype(float)
     
     rsi = calculate_rsi(df['close'].values)
+    latest_price = df['close'].iloc[-1]
+    latest_timestamp = df.index[-1]
     
-    # Customize chart style with the new color scheme
-    mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', wick='inherit', volume='inherit')
-    s = mpf.make_mpf_style(
-        marketcolors=mc, 
-        figcolor='#040720', 
-        gridcolor='#d9d9d9',
-        facecolor='#040720',
-        edgecolor='#d9d9d9'
-    )
+    # Customize chart style with black and blue theme
+    mc = mpf.make_marketcolors(up='blue', down='red', edge='inherit', wick='white', volume='inherit')
+    s = mpf.make_mpf_style(marketcolors=mc, figcolor='black', gridcolor='grey', y_on_right=True)
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(14, 7))
+    fig, axlist = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
     
     # Display RSI
-    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#040720', alpha=0.8))
+    axlist[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=axlist[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='black', alpha=0.8))
     
     # Draw a line at the latest price
-    last_close = df['close'].iloc[-1]
-    ax[0].axhline(last_close, color='blue', linestyle='--')
-    ax[0].text(df.index[-1], last_close, f'{last_close:.2f}', color='white', fontsize=10, verticalalignment='bottom')
-
-    # Save chart
+    axlist[0].axhline(latest_price, color='white', linewidth=0.75, linestyle='--')
+    axlist[0].text(df.index[-1], latest_price, f' {latest_price:.2f}', color='white', verticalalignment='center', fontsize=10)
+    
+    # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
+    
     chart_path = f'charts/{symbol}_{interval}.png'
     fig.savefig(chart_path, dpi=100, bbox_inches='tight')
     plt.close(fig)
@@ -116,4 +111,5 @@ async def handle_chart_callback(client, callback_query):
     
     chart_path = await generate_chart(symbol, interval)
     
-    await callback_query.message.edit_media(InputMediaPhoto(chart_path), caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
+    # Edit the message instead of deleting it
+    await callback_query.edit_message_media(InputMediaPhoto(open(chart_path, 'rb')), caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
