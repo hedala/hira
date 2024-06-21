@@ -61,21 +61,15 @@ async def generate_chart(symbol, interval):
     df = df.astype(float)
     
     rsi = calculate_rsi(df['close'].values)
-    latest_price = df['close'].iloc[-1]
-    latest_timestamp = df.index[-1]
     
-    # Customize chart style with black and blue theme
-    mc = mpf.make_marketcolors(up='blue', down='red', edge='inherit', wick='white', volume='inherit')
-    s = mpf.make_mpf_style(marketcolors=mc, figcolor='black', gridcolor='grey', y_on_right=True)
+    # Customize chart style
+    mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', wick='inherit', volume='inherit')
+    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#f2f2f2', gridcolor='#d9d9d9')
     
-    fig, axlist = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
     
     # Display RSI
-    axlist[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=axlist[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='black', alpha=0.8))
-    
-    # Draw a line at the latest price
-    axlist[0].axhline(latest_price, color='white', linewidth=0.75, linestyle='--')
-    axlist[0].text(df.index[-1], latest_price, f' {latest_price:.2f}', color='white', verticalalignment='center', fontsize=10)
+    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='blue', bbox=dict(facecolor='white', alpha=0.8))
     
     # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
@@ -111,5 +105,5 @@ async def handle_chart_callback(client, callback_query):
     
     chart_path = await generate_chart(symbol, interval)
     
-    # Edit the message instead of deleting it
-    await callback_query.edit_message_media(InputMediaPhoto(open(chart_path, 'rb')), caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
+    await callback_query.message.edit()  # Remove the old message with the chart
+    await callback_query.message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
