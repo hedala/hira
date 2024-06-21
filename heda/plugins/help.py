@@ -32,7 +32,7 @@ async def help_command(client, message):
     await message.reply_text(help_message, reply_markup=keyboard)
 
 # Callback query işleyicisi
-@app.on_callback_query()
+@Client.on_callback_query()
 async def callback_query_handler(client, query):
     if query.data == "crypto_help":
         await query.answer()
