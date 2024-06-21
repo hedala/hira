@@ -22,7 +22,7 @@ Genel Komutlar:
 """
 
 # Help komutu için işleyici
-@app.on_Client(filters.command("help"))
+@Client.on_message(filters.command("help"))
 async def help_command(client, message):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Kripto Komutları", callback_data="crypto_help")],
