@@ -67,7 +67,7 @@ async def generate_chart(symbol, interval):
     mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='inherit')
     s = mpf.make_mpf_style(marketcolors=mc, figcolor='#0d0d0d', facecolor='#0d0d0d', edgecolor='#cccccc', gridcolor='#31314e')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(12, 8))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(10, 6))
     
     # Grafik başlığının rengini ayarlıyoruz
     ax[0].set_title(f'{symbol}', color='white')
@@ -86,7 +86,7 @@ async def generate_chart(symbol, interval):
     ax[0].text(0.98, 0.98, f'Price: {latest_price:.2f}', horizontalalignment='right', verticalalignment='top', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#0d0d0d', alpha=0.8))
     
     # Display watermark
-    ax[0].text(0.5, 0.5, 'BLACKPINK\nDevrimdir!', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=20, color='gray', alpha=0.5)
+    ax[0].text(0.5, 0.5, 'Binance\n@CryptowhaleBot', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=20, color='gray', alpha=0.5)
     
     # Display latest price line
     ax[0].axhline(latest_price, color='green', linestyle='--')
@@ -96,7 +96,7 @@ async def generate_chart(symbol, interval):
     os.makedirs('charts', exist_ok=True)
     
     chart_path = f'charts/{symbol}_{interval}.png'
-    fig.savefig(chart_path, dpi=100, bbox_inches='tight')
+    fig.savefig(chart_path, dpi=80, bbox_inches='tight')
     plt.close(fig)
     
     return chart_path
@@ -136,4 +136,4 @@ async def handle_chart_callback(client, callback_query):
     )
     
     await callback_query.answer()
-                
+    
