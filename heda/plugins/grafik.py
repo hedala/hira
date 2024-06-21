@@ -65,12 +65,12 @@ async def generate_chart(symbol, interval):
     
     # Customize chart style
     mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='inherit')
-    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#000033', facecolor='#000033', edgecolor='#cccccc', gridcolor='#31314e')
+    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#0d0d0d', facecolor='#0d0d0d', edgecolor='#cccccc', gridcolor='#31314e')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(16, 9))
     
     # Grafik başlığının rengini ayarlıyoruz
-    ax[0].set_title(f'{symbol} - {TIMEFRAMES[interval]}', color='white')
+    ax[0].set_title(f'{symbol}', color='white')
 
     # Y ekseninin etiket rengini ayarlıyoruz
     ax[0].yaxis.label.set_color('white')
@@ -80,10 +80,17 @@ async def generate_chart(symbol, interval):
         axis.tick_params(colors='white')
     
     # Display RSI
-    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#000033', alpha=0.8))
+    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#0d0d0d', alpha=0.8))
     
     # Display latest price
-    ax[0].text(0.98, 0.98, f'Price: {latest_price:.2f}', horizontalalignment='right', verticalalignment='top', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#000033', alpha=0.8))
+    ax[0].text(0.98, 0.98, f'Price: {latest_price:.2f}', horizontalalignment='right', verticalalignment='top', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#0d0d0d', alpha=0.8))
+    
+    # Display watermark
+    ax[0].text(0.5, 0.5, 'Blackpink\nDevrimdir!', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=20, color='gray', alpha=0.5)
+    
+    # Display latest price line
+    ax[0].axhline(latest_price, color='green', linestyle='--')
+    ax[0].text(df.index[-1], latest_price, f'{latest_price:.3f}', color='green', verticalalignment='bottom')
     
     # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
