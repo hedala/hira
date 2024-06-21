@@ -1,5 +1,5 @@
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 import aiohttp
 import asyncio
 import pandas as pd
@@ -65,9 +65,19 @@ async def generate_chart(symbol, interval):
     
     # Customize chart style
     mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='inherit')
-    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#000033', facecolor='#000033', edgecolor='#cccccc', gridcolor='#31314e', rc={'font.color': 'white'})
+    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#000033', facecolor='#000033', edgecolor='#cccccc', gridcolor='#31314e')
     
     fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
+    
+    # Grafik başlığının rengini ayarlıyoruz
+    ax[0].set_title(f'{symbol} - {TIMEFRAMES[interval]}', color='white')
+
+    # Y ekseninin etiket rengini ayarlıyoruz
+    ax[0].yaxis.label.set_color('white')
+
+    # Tüm eksenlerin metin rengini ayarlıyoruz
+    for axis in ax:
+        axis.tick_params(colors='white')
     
     # Display RSI
     ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#000033', alpha=0.8))
