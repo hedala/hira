@@ -67,7 +67,7 @@ async def generate_chart(symbol, interval):
     mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='inherit')
     s = mpf.make_mpf_style(marketcolors=mc, figcolor='#0d0d0d', facecolor='#0d0d0d', edgecolor='#cccccc', gridcolor='#31314e')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(10, 6))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(8, 5))
     
     # Grafik başlığının rengini ayarlıyoruz
     ax[0].set_title(f'{symbol}', color='white')
@@ -96,7 +96,7 @@ async def generate_chart(symbol, interval):
     os.makedirs('charts', exist_ok=True)
     
     chart_path = f'charts/{symbol}_{interval}.png'
-    fig.savefig(chart_path, dpi=80, bbox_inches='tight')
+    fig.savefig(chart_path, dpi=60, bbox_inches='tight')
     plt.close(fig)
     
     return chart_path
