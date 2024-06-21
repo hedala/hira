@@ -8,7 +8,7 @@ from heda import redis, log
 
 BINANCE_API_URL = "https://fapi.binance.com/fapi/v1/ticker/price"
 
-@Client.on_message(filters.command(["alarm"]))
+@Client.on_message(filters.command(["aalarm"]))
 async def handle_alarm_command(client: Client, message: Message):
     try:
         user_id = message.from_user.id
