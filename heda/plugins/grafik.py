@@ -67,7 +67,7 @@ async def generate_chart(symbol, interval):
     mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='inherit')
     s = mpf.make_mpf_style(marketcolors=mc, figcolor='#0d0d0d', facecolor='#0d0d0d', edgecolor='#cccccc', gridcolor='#31314e')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(12, 8), dpi=100)
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(12, 8))
     
     # Grafik başlığının rengini ayarlıyoruz
     ax[0].set_title(f'{symbol}', color='white')
@@ -136,4 +136,4 @@ async def handle_chart_callback(client, callback_query):
     )
     
     await callback_query.answer()
-    
+                
