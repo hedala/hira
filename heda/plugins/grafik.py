@@ -75,7 +75,7 @@ async def generate_chart(symbol, interval):
     mc = mpf.make_marketcolors(up='green', down='red', edge='inherit', wick='inherit', volume={'up': 'green', 'down': 'red'})
     s = mpf.make_mpf_style(marketcolors=mc, figcolor='#000000', facecolor='#000000', edgecolor='#cccccc', gridcolor='#31314e')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9), volume_panel=1.2)
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9), figratio=(10, 7), figscale=1.2)
     
     # Grafik başlığının rengini ayarlıyoruz
     ax[0].set_title(f'{symbol}', color='white')
