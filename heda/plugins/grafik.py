@@ -7,6 +7,7 @@ import mplfinance as mpf
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from datetime import datetime, timezone, timedelta
 
 # Logger ayarları
 import logging
@@ -64,16 +65,17 @@ async def generate_chart(symbol, interval):
     
     df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df['timestamp'] = df['timestamp'].dt.tz_localize('UTC').dt.tz_convert('Europe/Istanbul')
     df.set_index('timestamp', inplace=True)
     df = df.astype(float)
     
     rsi = calculate_rsi(df['close'].values)
     
     # Customize chart style
-    mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='inherit')
+    mc = mpf.make_marketcolors(up='green', down='red', edge='inherit', wick='inherit', volume={'up': 'green', 'down': 'red'})
     s = mpf.make_mpf_style(marketcolors=mc, figcolor='#000000', facecolor='#000000', edgecolor='#cccccc', gridcolor='#31314e')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9), volume_panel=1.2)
     
     # Grafik başlığının rengini ayarlıyoruz
     ax[0].set_title(f'{symbol}', color='white')
@@ -93,6 +95,10 @@ async def generate_chart(symbol, interval):
     
     # Grafik üzerine metin ekliyoruz
     ax[0].text(0.5, 0.5, 'BLACKPINK devrimdir!', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=15, color='gray', alpha=0.5)
+    
+    # Anlık zamanı ekliyoruz
+    current_time = datetime.now(timezone(timedelta(hours=3))).strftime('%Y-%m-%d %H:%M:%S')
+    ax[-1].text(1, -0.1, f'{current_time}', horizontalalignment='right', verticalalignment='top', transform=ax[-1].transAxes, fontsize=10, color='white')
     
     # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
@@ -156,4 +162,4 @@ async def handle_chart_callback(client, callback_query):
     except Exception as e:
         log.error(f"Grafik güncellenirken bir hata oluştu: {str(e)}")
         await callback_query.answer("Grafik güncellenirken bir hata oluştu.")
-        
+    
