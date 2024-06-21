@@ -8,19 +8,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-# Logger ayarları
 import logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-# Binance Futures API URLs
 BINANCE_FUTURES_TICKER_API_URL = "https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
 BINANCE_FUTURES_KLINES_API_URL = "https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
 
-# Chart settings
 TIMEFRAMES = {"15m": "15 minute", "1h": "1 hour", "4h": "4 hour", "1d": "1 day"}
 
-# RSI calculation
 def calculate_rsi(prices, period=14):
     delta = np.diff(prices)
     gain = np.where(delta > 0, delta, 0)
@@ -54,6 +50,7 @@ def calculate_change(open_price, current_price):
 async def generate_chart(symbol, interval):
     async with aiohttp.ClientSession() as session:
         kline_data = await fetch_kline(session, symbol, interval, limit=100)
+        latest_price = await fetch_latest_price(session, symbol)
     
     df = pd.DataFrame(kline_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -61,21 +58,17 @@ async def generate_chart(symbol, interval):
     df = df.astype(float)
     
     rsi = calculate_rsi(df['close'].values)
-    latest_close = df['close'].iloc[-1]
     
-    # Customize chart style
     mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', wick='inherit', volume='inherit')
-    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#1f1f2e', gridcolor='#d9d9d9', facecolor='black', edgecolor='white', gridstyle='-', edge='black', y_on_right=True)
+    s = mpf.make_mpf_style(base_mpf_style='nightclouds', marketcolors=mc, figcolor='#002b36', gridcolor='#586e75', facecolor='#002b36')
     
     fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
     
-    # Display RSI
     ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='black', alpha=0.8))
     
-    # Display latest price on the last candle
-    ax[0].text(df.index[-1], df['close'].iloc[-1], f'{latest_close:.2f}', color='white', verticalalignment='bottom')
+    last_candle = df.iloc[-1]
+    ax[0].text(last_candle.name, last_candle['close'], f'{latest_price:.2f}', color='white', fontsize=12, verticalalignment='bottom')
     
-    # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
     
     chart_path = f'charts/{symbol}_{interval}.png'
@@ -92,7 +85,7 @@ async def send_chart(client, message):
         return
     
     symbol = args[1].upper() + "USDT"
-    interval = "15m"  # Default interval
+    interval = "15m"
     
     chart_path = await generate_chart(symbol, interval)
     
@@ -109,4 +102,8 @@ async def handle_chart_callback(client, callback_query):
     
     chart_path = await generate_chart(symbol, interval)
     
-    await callback_query.message.edit_media(InputMediaPhoto(chart_path), caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
+    await callback_query.message.edit_media(
+        media=InputMediaPhoto(chart_path),
+        caption=f"{symbol} - {TIMEFRAMES[interval]}",
+        reply_markup=callback_query.message.reply_markup
+    )
