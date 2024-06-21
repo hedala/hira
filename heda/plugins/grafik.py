@@ -65,12 +65,12 @@ async def generate_chart(symbol, interval):
     
     # Customize chart style
     mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='inherit')
-    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#0d0d0d', facecolor='#0d0d0d', edgecolor='#cccccc', gridcolor='#31314e')
+    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#000033', facecolor='#000033', edgecolor='#cccccc', gridcolor='#31314e')
     
-    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol}', ylabel='USDT', volume=True, figsize=(6, 4))
+    fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
     
     # Grafik başlığının rengini ayarlıyoruz
-    ax[0].set_title(f'{symbol}', color='white')
+    ax[0].set_title(f'{symbol} - {TIMEFRAMES[interval]}', color='white')
 
     # Y ekseninin etiket rengini ayarlıyoruz
     ax[0].yaxis.label.set_color('white')
@@ -80,23 +80,16 @@ async def generate_chart(symbol, interval):
         axis.tick_params(colors='white')
     
     # Display RSI
-    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#0d0d0d', alpha=0.8))
+    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#000033', alpha=0.8))
     
     # Display latest price
-    ax[0].text(0.98, 0.98, f'Price: {latest_price:.2f}', horizontalalignment='right', verticalalignment='top', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#0d0d0d', alpha=0.8))
-    
-    # Display watermark
-    ax[0].text(0.5, 0.5, 'Binance\n@CryptowhaleBot', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=20, color='gray', alpha=0.5)
-    
-    # Display latest price line
-    ax[0].axhline(latest_price, color='green', linestyle='--')
-    ax[0].text(df.index[-1], latest_price, f'{latest_price:.3f}', color='green', verticalalignment='bottom')
+    ax[0].text(0.98, 0.98, f'Price: {latest_price:.2f}', horizontalalignment='right', verticalalignment='top', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#000033', alpha=0.8))
     
     # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
     
     chart_path = f'charts/{symbol}_{interval}.png'
-    fig.savefig(chart_path, dpi=50, bbox_inches='tight')
+    fig.savefig(chart_path, dpi=100, bbox_inches='tight')
     plt.close(fig)
     
     return chart_path
@@ -111,29 +104,40 @@ async def send_chart(client, message):
     symbol = args[1].upper() + "USDT"
     interval = "15m"  # Default interval
     
-    chart_path = await generate_chart(symbol, interval)
+    # "Grafik oluşturuluyor..." mesajını gönder
+    wait_message = await message.reply("Grafik oluşturuluyor...")
     
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("15M", callback_data=f"{symbol}_15m"), InlineKeyboardButton("1H", callback_data=f"{symbol}_1h"), InlineKeyboardButton("4H", callback_data=f"{symbol}_4h"), InlineKeyboardButton("1D", callback_data=f"{symbol}_1d")]
-    ])
-    
-    await message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=keyboard)
+    try:
+        chart_path = await generate_chart(symbol, interval)
+        
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("15M", callback_data=f"{symbol}_15m"), InlineKeyboardButton("1H", callback_data=f"{symbol}_1h"), InlineKeyboardButton("4H", callback_data=f"{symbol}_4h"), InlineKeyboardButton("1D", callback_data=f"{symbol}_1d")]
+        ])
+        
+        await message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=keyboard)
+    except Exception as e:
+        await message.reply(f"Grafik oluşturulurken bir hata oluştu: {str(e)}")
+    finally:
+        # "Grafik oluşturuluyor..." mesajını sil
+        await wait_message.delete()
 
 @Client.on_callback_query(filters.regex(r"\b([A-Z]+USDT)_(15m|1h|4h|1d)\b"))
 async def handle_chart_callback(client, callback_query):
+    await callback_query.answer("Grafik güncelleniyor, lütfen bekleyin...")
+    
     data = callback_query.data
     symbol, interval = data.split('_')
     
-    chart_path = await generate_chart(symbol, interval)
-    
-    # Mesajı düzenle
-    await callback_query.message.edit_media(
-        media=InputMediaPhoto(
-            media=chart_path,
-            caption=f"{symbol} - {TIMEFRAMES[interval]}"
-        ),
-        reply_markup=callback_query.message.reply_markup
-    )
-    
-    await callback_query.answer()
-    
+    try:
+        chart_path = await generate_chart(symbol, interval)
+        
+        # Mesajı düzenle
+        await callback_query.message.edit_media(
+            media=InputMediaPhoto(
+                media=chart_path,
+                caption=f"{symbol} - {TIMEFRAMES[interval]}"
+            ),
+            reply_markup=callback_query.message.reply_markup
+        )
+    except Exception as e:
+        await callback_query.message.reply(f"Grafik güncellenirken bir hata oluştu: {str(e)}")
