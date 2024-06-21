@@ -61,15 +61,19 @@ async def generate_chart(symbol, interval):
     df = df.astype(float)
     
     rsi = calculate_rsi(df['close'].values)
+    latest_close = df['close'].iloc[-1]
     
     # Customize chart style
     mc = mpf.make_marketcolors(up='g', down='r', edge='inherit', wick='inherit', volume='inherit')
-    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#f2f2f2', gridcolor='#d9d9d9')
+    s = mpf.make_mpf_style(marketcolors=mc, figcolor='#1f1f2e', gridcolor='#d9d9d9', facecolor='black', edgecolor='white', gridstyle='-', edge='black', y_on_right=True)
     
     fig, ax = mpf.plot(df, type='candle', style=s, returnfig=True, title=f'{symbol} - {TIMEFRAMES[interval]}', ylabel='Price', volume=True, figsize=(16, 9))
     
     # Display RSI
-    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='blue', bbox=dict(facecolor='white', alpha=0.8))
+    ax[0].text(0.5, 0.02, f'RSI: {rsi:.2f}', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='black', alpha=0.8))
+    
+    # Display latest price on the last candle
+    ax[0].text(df.index[-1], df['close'].iloc[-1], f'{latest_close:.2f}', color='white', verticalalignment='bottom')
     
     # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
@@ -105,5 +109,4 @@ async def handle_chart_callback(client, callback_query):
     
     chart_path = await generate_chart(symbol, interval)
     
-    await callback_query.message.edit()  # Remove the old message with the chart
-    await callback_query.message.reply_photo(chart_path, caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
+    await callback_query.message.edit_media(InputMediaPhoto(chart_path), caption=f"{symbol} - {TIMEFRAMES[interval]}", reply_markup=callback_query.message.reply_markup)
