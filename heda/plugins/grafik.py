@@ -85,8 +85,8 @@ async def generate_chart(symbol, interval):
     # Display latest price
     ax[0].text(0.98, 0.98, f'Price: {latest_price:.2f}', horizontalalignment='right', verticalalignment='top', transform=ax[0].transAxes, fontsize=12, color='white', bbox=dict(facecolor='#000033', alpha=0.8))
     
-    # Add watermark text
-    ax[0].text(0.5, 0.5, 'BLACKPINK\nDevrimdir!', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=20, color='gray', alpha=0.5)
+    # Grafik üzerine metin ekliyoruz
+    ax[0].text(0.5, 0.5, 'BLACKPINK\nDevrimdir!', horizontalalignment='center', verticalalignment='center', transform=ax[0].transAxes, fontsize=15, color='gray', alpha=0.5)
     
     # charts klasörünü oluştur
     os.makedirs('charts', exist_ok=True)
@@ -144,4 +144,4 @@ async def handle_chart_callback(client, callback_query):
         )
     except Exception as e:
         await callback_query.message.reply(f"Grafik güncellenirken bir hata oluştu: {str(e)}")
-    
+        
