@@ -5,8 +5,6 @@ from datetime import datetime
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from InflexMusic import app
-
 # Binance Futures API URL
 BINANCE_FUTURES_API_URL = "https://fapi.binance.com/fapi/v1/ticker/24hr?symbol="
 
@@ -21,7 +19,7 @@ def format_large_number(num):
     else:
         return f"{num:.2f}"
 
-@app.on_message(filters.command("f"))
+@Client.on_message(filters.command("f"))
 async def get_crypto_price(client, message):
     if len(message.command) < 2:
         await message.reply("Kullanım: /f <coin>")
