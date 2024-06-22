@@ -71,4 +71,4 @@ async def main():
         await client.idle()
 
 # Botu başlat
-client.run(main())
+Client.run(main())
