@@ -66,9 +66,9 @@ async def list_alarms(client: Client, message: Message):
 
 async def main():
     async with client:
+        # Başlangıçta fiyat kontrolünü başlatır
         asyncio.create_task(price_check())
         await client.idle()
 
-# Start the bot
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+# Botu başlat
+client.run(main())
