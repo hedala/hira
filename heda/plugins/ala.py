@@ -1,77 +1,68 @@
 import asyncio
+import aiohttp
 from pyrogram import Client, filters
 from pyrogram.types import Message
-import aiohttp
-import json
 
-# Kullanıcı alarmlarını saklamak için sözlük
-user_alarms = {}
+# In-memory storage for alarms
+alarms = {}
 
-async def check_price(symbol):
-    url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}USDT"
+async def get_coin_price(coin):
+    url = f'https://fapi.binance.com/fapi/v1/ticker/price?symbol={coin.upper()}USDT'
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                return float(data['price'])
-    return None
+        async with session.get(url) as resp:
+            data = await resp.json()
+            return float(data['price'])
 
-async def check_alarms():
+async def price_check():
     while True:
-        for user_id, alarms in user_alarms.items():
-            for alarm in alarms[:]:
-                symbol, target_price = alarm
-                current_price = await check_price(symbol)
-                if current_price is not None:
-                    if current_price >= target_price:
-                        await app.send_message(user_id, f"🚨 Alarm: {symbol} fiyatı {current_price} USDT'ye ulaştı!")
-                        alarms.remove(alarm)
+        for user_id, user_alarms in alarms.items():
+            for coin, target_price in user_alarms.copy().items():
+                current_price = await get_coin_price(coin)
+                if current_price >= target_price:
+                    await app.send_message(user_id, f"🚨 {coin.upper()} has reached the target price of {target_price} USDT! Current price: {current_price} USDT")
+                    del alarms[user_id][coin]
         await asyncio.sleep(2)
 
-@Client.on_message(filters.command("st"))
-async def start_command(client, message: Message):
-    await message.reply_text("Merhaba! Kripto alarm botuna hoş geldiniz. Alarm kurmak için /alarm komutunu kullanabilirsiniz.")
-
-@Client.on_message(filters.command("aalarm"))
-async def alarm_command(client, message: Message):
-    user_id = message.from_user.id
-    command_parts = message.text.split()
-
-    if len(command_parts) == 1:
-        await message.reply_text("Kullanım: /alarm <coin> <hedef_fiyat> veya /alarm sil veya /alarm liste")
+@Client.on_message(filters.command(["alarm"]))
+async def set_alarm(client: Client, message: Message):
+    args = message.text.split()
+    if len(args) < 3:
+        await message.reply("Usage: /alarm <coin> <target_price>")
         return
 
-    if command_parts[1].lower() == "sil":
-        if user_id in user_alarms:
-            del user_alarms[user_id]
-            await message.reply_text("Tüm alarmlarınız silindi.")
-        else:
-            await message.reply_text("Aktif alarmınız bulunmamaktadır.")
-        return
-
-    if command_parts[1].lower() == "liste":
-        if user_id in user_alarms and user_alarms[user_id]:
-            alarm_list = "\n".join([f"{symbol}: {price} USDT" for symbol, price in user_alarms[user_id]])
-            await message.reply_text(f"Aktif alarmlarınız:\n{alarm_list}")
-        else:
-            await message.reply_text("Aktif alarmınız bulunmamaktadır.")
-        return
-
-    if len(command_parts) != 3:
-        await message.reply_text("Kullanım: /alarm <coin> <hedef_fiyat>")
-        return
-
-    symbol = command_parts[1].upper()
+    coin = args[1].upper()
     try:
-        target_price = float(command_parts[2])
+        target_price = float(args[2])
     except ValueError:
-        await message.reply_text("Geçersiz hedef fiyat. Lütfen sayısal bir değer girin.")
+        await message.reply("Invalid target price. Please enter a valid number.")
         return
 
-    if user_id not in user_alarms:
-        user_alarms[user_id] = []
-    user_alarms[user_id].append((symbol, target_price))
-    await message.reply_text(f"Alarm kuruldu: {symbol} için {target_price} USDT")
+    user_id = message.from_user.id
+    if user_id not in alarms:
+        alarms[user_id] = {}
 
-if __name__ == "__main__":
-    asyncio.get_event_loop().create_task(check_alarms())
+    alarms[user_id][coin] = target_price
+    await message.reply(f"Alarm set for {coin} at {target_price} USDT")
+
+@Client.on_message(filters.command(["alarm_delete"]))
+async def delete_alarms(client: Client, message: Message):
+    user_id = message.from_user.id
+    if user_id in alarms:
+        del alarms[user_id]
+        await message.reply("All your alarms have been deleted.")
+    else:
+        await message.reply("You have no alarms to delete.")
+
+@Client.on_message(filters.command(["alarm_list"]))
+async def list_alarms(client: Client, message: Message):
+    user_id = message.from_user.id
+    if user_id in alarms and alarms[user_id]:
+        response = "Your active alarms:\n"
+        for coin, target_price in alarms[user_id].items():
+            response += f"- {coin} at {target_price} USDT\n"
+        await message.reply(response)
+    else:
+        await message.reply("You have no active alarms.")
+
+# Start the price checking task
+app.add_task(price_check())
