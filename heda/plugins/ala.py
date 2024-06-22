@@ -65,4 +65,4 @@ async def list_alarms(client: Client, message: Message):
         await message.reply("You have no active alarms.")
 
 # Start the price checking task
-app.add_task(price_check())
+Client.add_task(price_check())
