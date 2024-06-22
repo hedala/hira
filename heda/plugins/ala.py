@@ -69,6 +69,3 @@ async def main():
         # Başlangıçta fiyat kontrolünü başlatır
         asyncio.create_task(price_check())
         await client.idle()
-
-# Botu başlat
-Client.run(main())
