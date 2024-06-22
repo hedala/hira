@@ -23,7 +23,7 @@ async def price_check():
                     del alarms[user_id][coin]
         await asyncio.sleep(2)
 
-@client.on_message(filters.command(["alarm"]))
+@Client.on_message(filters.command(["alarm"]))
 async def set_alarm(client: Client, message: Message):
     args = message.text.split()
     if len(args) < 3:
@@ -44,7 +44,7 @@ async def set_alarm(client: Client, message: Message):
     alarms[user_id][coin] = target_price
     await message.reply(f"Alarm set for {coin} at {target_price} USDT")
 
-@client.on_message(filters.command(["alarm_delete"]))
+@Client.on_message(filters.command(["alarm_delete"]))
 async def delete_alarms(client: Client, message: Message):
     user_id = message.from_user.id
     if user_id in alarms:
@@ -53,7 +53,7 @@ async def delete_alarms(client: Client, message: Message):
     else:
         await message.reply("You have no alarms to delete.")
 
-@client.on_message(filters.command(["alarm_list"]))
+@Client.on_message(filters.command(["alarm_list"]))
 async def list_alarms(client: Client, message: Message):
     user_id = message.from_user.id
     if user_id in alarms and alarms[user_id]:
@@ -65,9 +65,9 @@ async def list_alarms(client: Client, message: Message):
         await message.reply("You have no active alarms.")
 
 async def main():
-    await client.start()
-    asyncio.create_task(price_check())
-    await client.idle()
+    async with client:
+        asyncio.create_task(price_check())
+        await client.idle()
 
 # Start the bot
 loop = asyncio.get_event_loop()
