@@ -32,7 +32,7 @@ async def check_alarms():
 async def start_command(client, message: Message):
     await message.reply_text("Merhaba! Kripto alarm botuna hoş geldiniz. Alarm kurmak için /alarm komutunu kullanabilirsiniz.")
 
-@Client.on_message(filters.command("alarm"))
+@Client.on_message(filters.command("aalarm"))
 async def alarm_command(client, message: Message):
     user_id = message.from_user.id
     command_parts = message.text.split()
