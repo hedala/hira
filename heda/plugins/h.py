@@ -3,7 +3,7 @@ from pyrogram import Client, filters
 # Kullanıcı dil tercihi
 user_lang = {}
 
-@app.on_message(filters.command("start"))
+@Client.on_message(filters.command("start"))
 async def start_hello(client, message):
     if user_lang.get(message.from_user.id) == "en":
         await message.reply("hello")
@@ -12,7 +12,7 @@ async def start_hello(client, message):
     else:
         await message.reply("Please set your language using /lang en or /lang tr.")
 
-@app.on_message(filters.command(["lang"]))
+@Client.on_message(filters.command(["lang"]))
 async def set_language(client, message):
     lang = message.text.split()[1]
     if lang in ["en", "tr"]:
