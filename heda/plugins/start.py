@@ -3,7 +3,7 @@ from pyrogram.types import Message
 
 from heda import redis, log
 
-@Client.on_message(filters.command(["start"]))
+@Client.on_message(filters.command(["sstart"]))
 async def handle_start_command(_, message: Message):
     try:
         user_id = message.from_user.id
