@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import filters
 
 # Kullanıcı dil tercihi
 user_lang = {}
@@ -20,5 +20,3 @@ async def set_language(client, message):
         await message.reply(f"Language set to {'English' if lang == 'en' else 'Turkish'}.")
     else:
         await message.reply("Invalid language code. Use /lang en or /lang tr.")
-
-if __name__ == "__main__":
