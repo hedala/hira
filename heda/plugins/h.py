@@ -1,4 +1,4 @@
-from pyrogram import filters
+from pyrogram import Client, filters
 
 # Kullanıcı dil tercihi
 user_lang = {}
