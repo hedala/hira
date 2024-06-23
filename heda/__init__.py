@@ -7,7 +7,7 @@ from heda.utils.logging import log
 from heda.database.redis_db import RedisHandler
 
 
-VERSION = "1.0.0"
+VERSION = "1.1.4"
 
 log = log
 
