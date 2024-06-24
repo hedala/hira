@@ -1,79 +1,118 @@
 import os
-import yt_dlp
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from yt_dlp import YoutubeDL
+import asyncio
 
-# Format ve kalite seçenekleri
-video_formats = ["720p", "1080p", "2K", "4K", "Best Video"]
-audio_formats = ["MP3 128 kbps", "MP3 320 kbps", "FLAC", "Best Audio"]
+# YouTube arama fonksiyonu
+async def search_youtube(query):
+    ydl_opts = {"quiet": True, "no_warnings": True}
+    with YoutubeDL(ydl_opts) as ydl:
+        try:
+            search_results = ydl.extract_info(f"ytsearch5:{query}", download=False)['entries']
+            return search_results
+        except Exception as e:
+            print(f"YouTube arama hatası: {e}")
+            return []
 
-# İndirme işlemi için yt-dlp seçenekleri
-def get_ydl_opts(format):
+# İndirme fonksiyonu
+async def download_youtube(link, format_id, message):
     ydl_opts = {
-        'format': format,
+        'format': format_id,
         'outtmpl': '%(title)s.%(ext)s',
-        'progress_hooks': [progress_hook],
+        'progress_hooks': [lambda d: progress_hook(d, message)],
     }
-    return ydl_opts
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(link, download=True)
+        filename = ydl.prepare_filename(info)
+    return filename, info
 
-# İndirme ilerleme durumu
-def progress_hook(d):
+# İlerleme durumu için hook fonksiyonu
+async def progress_hook(d, message):
     if d['status'] == 'downloading':
-        percentage = d['_percent_str']
-        message.edit_text(f"Video indiriliyor. %{percentage}")
+        percent = d['_percent_str']
+        await message.edit_text(f"Video indiriliyor. {percent}")
 
-# /yt komutu
+# /yt komutu için handler
 @Client.on_message(filters.command("yt"))
-async def yt_command(client, message: Message):
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.reply("Lütfen bir YouTube linki veya arama argümanı girin.")
+async def youtube_command(client, message):
+    command = message.text.split(maxsplit=1)
+    if len(command) == 1:
+        await message.reply_text("Lütfen bir YouTube linki veya arama terimi girin.")
         return
 
-    query = args[1]
-    if query.startswith("http"):
-        await send_format_buttons(message, query)
+    query = command[1]
+    if "youtube.com" in query or "youtu.be" in query:
+        # Link verilmişse
+        await show_format_buttons(message, query)
     else:
-        await search_youtube(message, query)
+        # Arama terimi verilmişse
+        results = await search_youtube(query)
+        if results:
+            buttons = []
+            for i, video in enumerate(results):
+                buttons.append([InlineKeyboardButton(video['title'], callback_data=f"search_{i}_{query}")])
+            reply_markup = InlineKeyboardMarkup(buttons)
+            await message.reply_text("Arama sonuçları:", reply_markup=reply_markup)
+        else:
+            await message.reply_text("Arama sonucu bulunamadı.")
 
-# Format ve kalite seçim butonları gönderme
-async def send_format_buttons(message: Message, link: str):
+# Format seçimi için butonları gösterme fonksiyonu
+async def show_format_buttons(message, link):
     buttons = [
-        [InlineKeyboardButton(f"Video: {fmt}", callback_data=f"video|{link}|{fmt}") for fmt in video_formats],
-        [InlineKeyboardButton(f"Audio: {fmt}", callback_data=f"audio|{link}|{fmt}") for fmt in audio_formats],
+        [InlineKeyboardButton("Video 720p", callback_data=f"format_720_{link}")],
+        [InlineKeyboardButton("Video 1080p", callback_data=f"format_1080_{link}")],
+        [InlineKeyboardButton("Video 2K", callback_data=f"format_1440_{link}")],
+        [InlineKeyboardButton("Video 4K", callback_data=f"format_2160_{link}")],
+        [InlineKeyboardButton("Best Video", callback_data=f"format_bestvideo_{link}")],
+        [InlineKeyboardButton("Audio MP3 128kbps", callback_data=f"format_mp3_128_{link}")],
+        [InlineKeyboardButton("Audio MP3 320kbps", callback_data=f"format_mp3_320_{link}")],
+        [InlineKeyboardButton("Audio FLAC", callback_data=f"format_flac_{link}")],
+        [InlineKeyboardButton("Best Audio", callback_data=f"format_bestaudio_{link}")]
     ]
-    await message.reply("Hangi formatta indirmek istersiniz?", reply_markup=InlineKeyboardMarkup(buttons))
+    reply_markup = InlineKeyboardMarkup(buttons)
+    await message.reply_text("Lütfen indirme formatını seçin:", reply_markup=reply_markup)
 
-# YouTube'da arama yapma
-async def search_youtube(message: Message, query: str):
-    ydl_opts = {'default_search': 'ytsearch5', 'quiet': True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        results = ydl.extract_info(query, download=False)['entries']
-    
-    buttons = [
-        [InlineKeyboardButton(result['title'], callback_data=f"search|{result['webpage_url']}") for result in results]
-    ]
-    await message.reply("Arama sonuçları:", reply_markup=InlineKeyboardMarkup(buttons))
-
-# Callback butonları işleme
-@Client.on_callback_query()
+# Callback query handler
+@Client.on_callback_query(filters.regex("^(format|search)_"))
 async def callback_query_handler(client, callback_query):
-    data = callback_query.data.split("|")
-    action = data[0]
-    link = data[1]
-    format = data[2] if len(data) > 2 else None
+    data = callback_query.data.split("_")
+    if data[0] == "format":
+        format_id = data[1]
+        link = "_".join(data[2:])
+        await process_download(callback_query.message, link, format_id)
+    elif data[0] == "search":
+        index = int(data[1])
+        query = "_".join(data[2:])
+        results = await search_youtube(query)
+        if index < len(results):
+            video = results[index]
+            await show_format_buttons(callback_query.message, video['webpage_url'])
+        else:
+            await callback_query.answer("Video bulunamadı.")
+            
 
-    if action == "video" or action == "audio":
-        await download_media(callback_query.message, link, format)
-    elif action == "search":
-        await send_format_buttons(callback_query.message, link)
-
-# Medya indirme ve gönderme
-async def download_media(message: Message, link: str, format: str):
-    ydl_opts = get_ydl_opts(format)
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(link, download=True)
-        file_path = ydl.prepare_filename(info)
-    
-    await message.reply_document(file_path, caption=f"{info['title']} ({format})")
-    os.remove(file_path)
+# İndirme işlemi
+async def process_download(message, link, format_id):
+    progress_message = await message.reply_text("İndirme başlatılıyor...")
+    try:
+        filename, info = await download_youtube(link, format_id, progress_message)
+        
+        if 'video' in format_id:
+            await message.reply_video(
+                video=filename,
+                caption=f"{info['title']} - {format_id}",
+                duration=info.get('duration'),
+                thumb=info.get('thumbnail'),
+            )
+        else:
+            await message.reply_audio(
+                audio=filename,
+                caption=f"{info['title']} - {format_id}",
+                duration=info.get('duration'),
+            )
+        
+        os.remove(filename)
+        await progress_message.delete()
+    except Exception as e:
+        await progress_message.edit_text(f"İndirme hatası: {str(e)}")
