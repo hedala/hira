@@ -25,14 +25,21 @@ async def handle_yt_command(_, message: Message):
 
         ydl_opts = {
             'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
-            'progress_hooks': [lambda d: progress_hook(d, start_message)]
+            'progress_hooks': [lambda d: progress_hook(d, start_message)],
+            'outtmpl': 'downloads/%(title)s.%(ext)s'
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([link])
+            info_dict = ydl.extract_info(link, download=True)
+            video_file = ydl.prepare_filename(info_dict)
 
         await start_message.edit_text(
             text="Video başarıyla indirildi!"
+        )
+
+        await message.reply_video(
+            video=video_file,
+            caption="İşte indirdiğiniz video!"
         )
 
         log(__name__).info(
@@ -46,6 +53,10 @@ async def handle_yt_command(_, message: Message):
             await redis.add_to_db(
                 "NEW_USER", user_id
             )
+
+        # İndirilen dosyayı temizleyelim
+        if os.path.exists(video_file):
+            os.remove(video_file)
 
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
