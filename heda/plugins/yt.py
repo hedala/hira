@@ -18,7 +18,7 @@ def get_best_thumbnail(info_dict):
 
 async def embed_thumbnail(video_file, thumbnail_file):
     """Videoya thumbnail ekler."""
-    cmd = f'ffmpeg -i "{video_file}" -i "{thumbnail_file}" -map 0 -map 1 -c copy -c:v copy -c:a copy -metadata:s:v:0 title="Album cover" -metadata:s:v:0 comment="Cover (front)" "{video_file}_with_thumb.mp4"'
+    cmd = f'ffmpeg -i "{video_file}" -i "{thumbnail_file}" -map 0 -map 1 -c copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v:1 attached_pic "{video_file}_with_thumb.mp4"'
     os.system(cmd)
     os.rename(f"{video_file}_with_thumb.mp4", video_file)
 
