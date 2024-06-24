@@ -3,6 +3,7 @@ from pyrogram.types import Message
 import yt_dlp
 import os
 import asyncio
+import time
 
 from heda import redis, log
 
@@ -23,6 +24,8 @@ async def handle_yt_command(_, message: Message):
             text="Video bilgileri alınıyor...",
             quote=True
         )
+
+        video_file = None  # Initialize video_file to None
 
         ydl_opts = {
             'format': 'bestvideo[height<=1080]+bestaudio/best',
@@ -55,13 +58,21 @@ async def handle_yt_command(_, message: Message):
             f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
         )
 
+        # Find the thumbnail file
+        thumbnail_file = None
+        for ext in ['.jpg', '.png', '.webp']:
+            possible_thumb = video_file.rsplit(".", 1)[0] + ext
+            if os.path.exists(possible_thumb):
+                thumbnail_file = possible_thumb
+                break
+
         try:
             await message.reply_video(
                 video=video_file,
                 caption=caption,
                 supports_streaming=True,
                 duration=duration,
-                thumb=video_file.rsplit(".", 1)[0] + ".jpg"  # Thumbnail dosyası
+                thumb=thumbnail_file
             )
         except Exception as e:
             log(__name__).error(f"Video gönderme hatası: {str(e)}")
@@ -90,18 +101,28 @@ async def handle_yt_command(_, message: Message):
         )
     finally:
         # İndirilen dosyaları temizleyelim
-        if 'video_file' in locals() and os.path.exists(video_file):
+        if video_file and os.path.exists(video_file):
             os.remove(video_file)
-        thumbnail_file = video_file.rsplit(".", 1)[0] + ".jpg"
-        if os.path.exists(thumbnail_file):
+        if thumbnail_file and os.path.exists(thumbnail_file):
             os.remove(thumbnail_file)
 
+last_update_time = 0
+update_interval = 3  # seconds
+
 async def progress_hook(d, start_message):
+    global last_update_time
+    current_time = time.time()
+    
     if d['status'] == 'downloading':
-        percentage = d['_percent_str']
-        speed = d.get('_speed_str', 'N/A')
-        eta = d.get('_eta_str', 'N/A')
-        text = f"Video indiriliyor...\n📊 İlerleme: {percentage}\n🚀 Hız: {speed}\n⏳ Tahmini süre: {eta}"
-        await start_message.edit_text(text)
+        if current_time - last_update_time >= update_interval:
+            percentage = d['_percent_str']
+            speed = d.get('_speed_str', 'N/A')
+            eta = d.get('_eta_str', 'N/A')
+            text = f"Video indiriliyor...\n📊 İlerleme: {percentage}\n🚀 Hız: {speed}\n⏳ Tahmini süre: {eta}"
+            try:
+                await start_message.edit_text(text)
+                last_update_time = current_time
+            except Exception as e:
+                log(__name__).error(f"İlerleme güncellemesi hatası: {str(e)}")
     elif d['status'] == 'finished':
         await start_message.edit_text("Video indirildi. İşleniyor...")
