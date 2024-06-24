@@ -17,7 +17,7 @@ quality_options = {
 }
 
 @Client.on_message(filters.command(["yt"]))
-async def handle_yt_command(_, message: Message):
+async def handle_yt_command(client, message: Message):
     link = message.command[1] if len(message.command) > 1 else None
     if not link:
         await message.reply_text("Lütfen bir YouTube linki sağlayın.", quote=True)
@@ -89,4 +89,3 @@ async def handle_quality_selection(client, callback_query):
             os.remove(video_file)
         if thumb and os.path.exists(thumb):
             os.remove(thumb)
-            
