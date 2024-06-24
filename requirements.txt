@@ -21,4 +21,3 @@ matplotlib
 mplfinance
 pandas
 numpy
-apscheduler
