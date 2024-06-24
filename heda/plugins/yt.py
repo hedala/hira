@@ -10,7 +10,10 @@ from heda import redis, log
 def get_best_thumbnail(info_dict):
     """En kaliteli thumbnail URL'sini döndürür."""
     thumbnails = info_dict.get('thumbnails', [])
-    best_thumbnail = max(thumbnails, key=lambda x: x['width'] * x['height'])
+    valid_thumbnails = [t for t in thumbnails if 'width' in t and 'height' in t]
+    if not valid_thumbnails:
+        return None
+    best_thumbnail = max(valid_thumbnails, key=lambda x: x['width'] * x['height'])
     return best_thumbnail['url']
 
 async def embed_thumbnail(video_file, thumbnail_file):
@@ -73,6 +76,8 @@ async def handle_yt_command(_, message: Message):
                     upload_date = info_dict.get('upload_date')
 
                 thumbnail_url = get_best_thumbnail(info_dict)
+                if thumbnail_url is None:
+                    raise Exception("Geçerli bir thumbnail bulunamadı.")
 
                 await start_message.edit_text("Video başarıyla indirildi Gönderiliyor...")
 
@@ -137,4 +142,3 @@ async def handle_yt_command(_, message: Message):
             os.remove(video_file)
         if thumbnail_file and os.path.exists(thumbnail_file):
             os.remove(thumbnail_file)
-                    
