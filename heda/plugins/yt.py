@@ -1,75 +1,68 @@
 import os
+import asyncio
+import yt_dlp
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import yt_dlp
-from youtube_search import YoutubeSearch
+from youtube_search_python import VideosSearch
 
-# Function to download video/audio
-def download_media(url, format_id):
-    ydl_opts = {
-        'format': format_id,
-        'outtmpl': '%(title)s.%(ext)s',
-        'progress_hooks': [progress_hook],
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=True)
-        return ydl.prepare_filename(info_dict), info_dict
+# Video ve ses kalite seçenekleri
+VIDEO_QUALITIES = ['720p', '1080p', '2K', '4K', 'Best Video']
+AUDIO_QUALITIES = ['MP3 128 kbps', 'MP3 320 kbps', 'FLAC', 'Best Audio']
 
-# Progress hook to send download progress
-def progress_hook(d):
+def format_progress_hook(d):
     if d['status'] == 'downloading':
         percentage = d['_percent_str']
-        Client.send_message(chat_id, f"Video indiriliyor. %{percentage}")
+        app.send_message(d['chat_id'], f"Video indiriliyor: {percentage}")
+
+async def download_video(youtube_link, quality, chat_id):
+    ydl_opts = {
+        'format': quality,
+        'progress_hooks': [format_progress_hook],
+        'outtmpl': 'video.%(ext)s'
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(youtube_link, download=True)
+        title = info_dict.get('title', None)
+        file_extension = info_dict.get('ext', None)
+        file_name = f"{title} ({quality}).{file_extension}"
+        os.rename('video.' + file_extension, file_name)
+    return file_name, info_dict
 
 @Client.on_message(filters.command("yt"))
-async def yt_command(client, message):
-    args = message.text.split(maxsplit=1)
-    if len(args) == 2:
-        query = args[1]
-        if query.startswith("http"):
-            await send_format_options(message.chat.id, query)
-        else:
-            await search_youtube(message.chat.id, query)
+async def youtube_handler(client, message):
+    query = ' '.join(message.command[1:])
+    chat_id = message.chat.id
+
+    if query.startswith("http"):
+        await message.reply("Lütfen kalite seçiniz:", reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton(q, callback_data=f"{query}|{q}")] for q in VIDEO_QUALITIES + AUDIO_QUALITIES]
+        ))
     else:
-        await message.reply("Lütfen bir YouTube linki veya arama terimi girin.")
-
-async def send_format_options(chat_id, url):
-    buttons = [
-        [InlineKeyboardButton("Video", callback_data=f"video|{url}")],
-        [InlineKeyboardButton("Audio", callback_data=f"audio|{url}")]
-    ]
-    await Client.send_message(chat_id, "İndirme formatını seçin:", reply_markup=InlineKeyboardMarkup(buttons))
-
-async def search_youtube(chat_id, query):
-    results = YoutubeSearch(query, max_results=5).to_dict()
-    buttons = [[InlineKeyboardButton(result['title'], callback_data=f"select|{result['url_suffix']}")] for result in results]
-    await Client.send_message(chat_id, "Arama sonuçları:", reply_markup=InlineKeyboardMarkup(buttons))
+        search = VideosSearch(query, limit=5)
+        results = search.result()['result']
+        buttons = [
+            [InlineKeyboardButton(result['title'], callback_data=f"{result['link']}|search")]
+            for result in results
+        ]
+        await message.reply("Lütfen bir video seçiniz:", reply_markup=InlineKeyboardMarkup(buttons))
 
 @Client.on_callback_query()
 async def callback_query_handler(client, callback_query):
-    data = callback_query.data.split("|")
-    action = data[0]
-    url = data[1]
+    data = callback_query.data.split('|')
+    youtube_link = data[0]
+    quality = data[1]
+    chat_id = callback_query.message.chat.id
 
-    if action == "video":
-        buttons = [
-            [InlineKeyboardButton("720p", callback_data=f"download|{url}|bestvideo[height<=720]")],
-            [InlineKeyboardButton("1080p", callback_data=f"download|{url}|bestvideo[height<=1080]")],
-            [InlineKeyboardButton("2K", callback_data=f"download|{url}|bestvideo[height<=1440]")],
-            [InlineKeyboardButton("4K", callback_data=f"download|{url}|bestvideo[height<=2160]")],
-            [InlineKeyboardButton("Best", callback_data=f"download|{url}|bestvideo")]
-        ]
-        await callback_query.message.edit_text("Video kalitesini seçin:", reply_markup=InlineKeyboardMarkup(buttons))
-    elif action == "audio":
-        buttons = [
-            [InlineKeyboardButton("MP3 128kbps", callback_data=f"download|{url}|bestaudio[ext=mp3]/bestaudio[abr<=128]")],
-            [InlineKeyboardButton("MP3 320kbps", callback_data=f"download|{url}|bestaudio[ext=mp3]/bestaudio[abr<=320]")],
-            [InlineKeyboardButton("FLAC", callback_data=f"download|{url}|bestaudio[ext=flac]")],
-            [InlineKeyboardButton("Best", callback_data=f"download|{url}|bestaudio")]
-        ]
-        await callback_query.message.edit_text("Ses kalitesini seçin:", reply_markup=InlineKeyboardMarkup(buttons))
-    elif action == "download":
-        format_id = data[2]
-        file_path, info_dict = download_media(url, format_id)
-        await Client.send_document(callback_query.message.chat.id, file_path, caption=f"{info_dict['title']} - {format_id}")
-        os.remove(file_path)
+    if quality == "search":
+        await callback_query.message.edit("Lütfen kalite seçiniz:", reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton(q, callback_data=f"{youtube_link}|{q}")] for q in VIDEO_QUALITIES + AUDIO_QUALITIES]
+        ))
+    else:
+        await callback_query.message.edit("Video indiriliyor...")
+        file_name, info_dict = await download_video(youtube_link, quality, chat_id)
+        thumbnail_url = info_dict['thumbnail']
+        duration = info_dict['duration']
+
+        await client.send_photo(chat_id, thumbnail_url, caption=f"**{info_dict['title']}**\nSüre: {duration}s\nKalite: {quality}")
+        await client.send_document(chat_id, file_name)
+        os.remove(file_name)
