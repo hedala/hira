@@ -37,6 +37,7 @@ async def handle_yt_command(_, message: Message):
                     info_dict = ydl.extract_info(link, download=True)
                     video_file = ydl.prepare_filename(info_dict)
                     title = info_dict.get('title')
+                    duration = info_dict.get('duration')
                     thumbnails = info_dict.get("thumbnails", [])
                     jpg_thumbnails = [thumb for thumb in thumbnails if thumb['url'].endswith('.jpg')]
 
@@ -52,8 +53,9 @@ async def handle_yt_command(_, message: Message):
 
         await message.reply_video(
             video=video_file,
-            caption=f"📹 Video: {title}",
+            caption=f"`{title}`",
             supports_streaming=True,
+            duration=duration,
             thumb=thumb
         )
 
