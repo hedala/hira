@@ -3,7 +3,8 @@ from pyrogram.types import Message
 import yt_dlp
 import os
 import requests
-from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, TextClip
+from PIL import Image, ImageDraw, ImageFont
+import subprocess
 
 from heda import redis, log
 
@@ -47,15 +48,32 @@ async def handle_yt_command(_, message: Message):
             with open(thumbnail_file, 'wb') as f:
                 f.write(thumbnail_response.content)
 
-        # moviepy ile videoya thumbnail ve süre bilgisi ekle
-        video_clip = VideoFileClip(video_file)
-        thumbnail_clip = ImageClip(thumbnail_file).set_duration(video_clip.duration).resize(height=240).set_pos(("right", "bottom"))
-        duration_text = f"{duration // 60} dakika {duration % 60} saniye"
-        text_clip = TextClip(duration_text, fontsize=24, color='white').set_duration(video_clip.duration).set_pos(("left", "bottom"))
+        # Pillow ile thumbnail ve süre bilgisi ekle
+        if thumbnail_file:
+            base = Image.open(thumbnail_file).convert('RGBA')
+            txt = Image.new('RGBA', base.size, (255, 255, 255, 0))
 
-        final_clip = CompositeVideoClip([video_clip, thumbnail_clip, text_clip])
+            # Font ve yazı ayarları
+            fnt = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 40)
+            d = ImageDraw.Draw(txt)
+
+            # Süre bilgisini ekle
+            duration_text = f"{duration // 60} dakika {duration % 60} saniye"
+            d.text((10, base.size[1] - 50), duration_text, font=fnt, fill=(255, 255, 255, 255))
+
+            # Thumbnail'i ekle
+            out = Image.alpha_composite(base, txt)
+            thumbnail_with_text = f"downloads/{info_dict['id']}_thumb.png"
+            out.save(thumbnail_with_text)
+
+        # ffmpeg ile videoya thumbnail ve süre bilgisi ekle
         output_file = f"downloads/{info_dict['id']}_final.mp4"
-        final_clip.write_videofile(output_file, codec='libx264')
+        ffmpeg_command = [
+            'ffmpeg', '-i', video_file, '-i', thumbnail_with_text, '-filter_complex',
+            "[1:v]scale=320:240[thumb];[0:v][thumb]overlay=W-w-10:H-h-10",
+            '-codec:a', 'copy', output_file
+        ]
+        subprocess.run(ffmpeg_command, check=True)
 
         await start_message.edit_text(
             text="Video başarıyla indirildi!"
@@ -87,6 +105,8 @@ async def handle_yt_command(_, message: Message):
             os.remove(thumbnail_file)
         if os.path.exists(output_file):
             os.remove(output_file)
+        if os.path.exists(thumbnail_with_text):
+            os.remove(thumbnail_with_text)
 
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
