@@ -21,6 +21,4 @@ matplotlib
 mplfinance
 pandas
 numpy
-threading
-ffmpeg
-pillow
+moviepy
