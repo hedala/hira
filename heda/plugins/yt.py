@@ -25,7 +25,7 @@ async def handle_yt_command(_, message: Message):
         )
 
         ydl_opts = {
-            'format': 'bestvideo[height<=1080][vcodec=h264]+bestaudio/best[height<=1080]',
+            'format': 'bestvideo[height<=1080]+bestaudio/best',
             'merge_output_format': 'mp4',
             'progress_hooks': [lambda d: progress_hook(d, start_message)],
             'outtmpl': 'downloads/%(title)s.%(ext)s',
