@@ -17,27 +17,24 @@ quality_options = {
 }
 
 @Client.on_message(filters.command(["yt"]))
-async def handle_yt_command(client, message: Message):
+async def handle_yt_command(_, message: Message):
     link = message.command[1] if len(message.command) > 1 else None
     if not link:
         await message.reply_text("Lütfen bir YouTube linki sağlayın.", quote=True)
         return
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("720p", callback_data=f"yt_{link}_720p")],
-        [InlineKeyboardButton("1080p", callback_data=f"yt_{link}_1080p")],
-        [InlineKeyboardButton("1440p", callback_data=f"yt_{link}_1440p")],
-        [InlineKeyboardButton("2160p", callback_data=f"yt_{link}_2160p")]
+        [InlineKeyboardButton("720p", callback_data=f"yt_dl|720p|{link}")],
+        [InlineKeyboardButton("1080p", callback_data=f"yt_dl|1080p|{link}")],
+        [InlineKeyboardButton("1440p", callback_data=f"yt_dl|1440p|{link}")],
+        [InlineKeyboardButton("2160p", callback_data=f"yt_dl|2160p|{link}")]
     ])
 
     await message.reply_text("Lütfen indirmek istediğiniz kaliteyi seçin:", reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"yt_(.+)_(\d+p)"))
+@Client.on_callback_query(filters.regex(r"yt_dl\|"))
 async def handle_quality_selection(client, callback_query):
-    data = callback_query.data.split("_")
-    link = data[1]
-    quality = data[2]
-
+    _, quality, link = callback_query.data.split("|")
     video_file = None
     thumb = None
     try:
@@ -89,3 +86,4 @@ async def handle_quality_selection(client, callback_query):
             os.remove(video_file)
         if thumb and os.path.exists(thumb):
             os.remove(thumb)
+    
