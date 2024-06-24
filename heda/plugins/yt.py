@@ -62,8 +62,15 @@ async def handle_yt_command(_, message: Message):
         )
 
         # Thumbnail dosyasını indir
-        thumbnail_file = 'downloads/thumbnail.jpg'
+        thumbnail_file = 'downloads/thumbnail.webp'
         os.system(f"wget -O {thumbnail_file} {thumbnail_url}")
+
+        # Thumbnail dosyasının uzantısını kontrol et
+        if thumbnail_file.endswith(".webp"):
+            # .webp dosyasını .jpg formatına dönüştür
+            jpg_thumbnail = thumbnail_file.replace(".webp", ".jpg")
+            os.system(f"dwebp {thumbnail_file} -o {jpg_thumbnail}")
+            thumbnail_file = jpg_thumbnail
 
         try:
             await message.reply_video(
