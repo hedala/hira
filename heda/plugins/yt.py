@@ -2,8 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import yt_dlp
 import os
-import requests
-from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, TextClip
+import asyncio
 
 from heda import redis, log
 
@@ -21,52 +20,55 @@ async def handle_yt_command(_, message: Message):
             return
 
         start_message = await message.reply_text(
-            text="Video indiriliyor.. %0",
+            text="Video bilgileri alınıyor...",
             quote=True
         )
 
         ydl_opts = {
             'format': 'bestvideo[height<=1080]+bestaudio/best',
             'merge_output_format': 'mp4',
-            'progress_hooks': [lambda d: progress_hook(d, start_message)],
+            'writethumbnail': True,
+            'postprocessors': [
+                {'key': 'EmbedThumbnail'},
+            ],
             'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'progress_hooks': [lambda d: asyncio.ensure_future(progress_hook(d, start_message))],
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             video_file = ydl.prepare_filename(info_dict)
-            thumbnail_url = info_dict.get('thumbnail')
             duration = info_dict.get('duration')
+            title = info_dict.get('title')
+            channel = info_dict.get('channel')
+            view_count = info_dict.get('view_count')
+            upload_date = info_dict.get('upload_date')
 
-        # Thumbnail'i indir
-        thumbnail_file = None
-        if thumbnail_url:
-            thumbnail_response = requests.get(thumbnail_url)
-            thumbnail_file = f"downloads/{info_dict['id']}.jpg"
-            with open(thumbnail_file, 'wb') as f:
-                f.write(thumbnail_response.content)
+        await start_message.edit_text("Video başarıyla indirildi! Gönderiliyor...")
 
-        # moviepy ile videoya thumbnail ve süre bilgisi ekle
-        video_clip = VideoFileClip(video_file)
-        thumbnail_clip = ImageClip(thumbnail_file).set_duration(video_clip.duration).resize(height=240).set_pos(("right", "bottom"))
-        duration_text = f"{duration // 60} dakika {duration % 60} saniye"
-        text_clip = TextClip(duration_text, fontsize=24, color='white').set_duration(video_clip.duration).set_pos(("left", "bottom"))
-
-        final_clip = CompositeVideoClip([video_clip, thumbnail_clip, text_clip])
-        output_file = f"downloads/{info_dict['id']}_final.mp4"
-        final_clip.write_videofile(output_file, codec='libx264')
-
-        await start_message.edit_text(
-            text="Video başarıyla indirildi!"
+        caption = (
+            f"📹 Video: {title}\n"
+            f"👤 Kanal: {channel}\n"
+            f"👁️ Görüntülenme: {view_count:,}\n"
+            f"📅 Yüklenme Tarihi: {upload_date}\n"
+            f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
         )
 
-        caption = f"İşte indirdiğiniz video!\nSüre: {duration // 60} dakika {duration % 60} saniye"
-
-        await message.reply_video(
-            video=output_file,
-            caption=caption
-        )
+        try:
+            await message.reply_video(
+                video=video_file,
+                caption=caption,
+                supports_streaming=True,
+                duration=duration,
+                thumb=video_file.rsplit(".", 1)[0] + ".jpg"  # Thumbnail dosyası
+            )
+        except Exception as e:
+            log(__name__).error(f"Video gönderme hatası: {str(e)}")
+            await message.reply_text(
+                text="Video gönderilirken bir hata oluştu.",
+                quote=True
+            )
 
         log(__name__).info(
             f"{message.command[0]} command was called by {message.from_user.full_name}."
@@ -80,23 +82,26 @@ async def handle_yt_command(_, message: Message):
                 "NEW_USER", user_id
             )
 
-        # İndirilen dosyaları temizleyelim
-        if os.path.exists(video_file):
-            os.remove(video_file)
-        if thumbnail_file and os.path.exists(thumbnail_file):
-            os.remove(thumbnail_file)
-        if os.path.exists(output_file):
-            os.remove(output_file)
-
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
         await message.reply_text(
             text=f"Bir hata oluştu: {str(e)}",
             quote=True
         )
+    finally:
+        # İndirilen dosyaları temizleyelim
+        if 'video_file' in locals() and os.path.exists(video_file):
+            os.remove(video_file)
+        thumbnail_file = video_file.rsplit(".", 1)[0] + ".jpg"
+        if os.path.exists(thumbnail_file):
+            os.remove(thumbnail_file)
 
-def progress_hook(d, start_message):
+async def progress_hook(d, start_message):
     if d['status'] == 'downloading':
         percentage = d['_percent_str']
-        text = f"Video indiriliyor.. %{percentage}"
-        start_message.edit_text(text)
+        speed = d.get('_speed_str', 'N/A')
+        eta = d.get('_eta_str', 'N/A')
+        text = f"Video indiriliyor...\n📊 İlerleme: {percentage}\n🚀 Hız: {speed}\n⏳ Tahmini süre: {eta}"
+        await start_message.edit_text(text)
+    elif d['status'] == 'finished':
+        await start_message.edit_text("Video indirildi. İşleniyor...")
