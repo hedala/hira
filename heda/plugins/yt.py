@@ -5,11 +5,6 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 from threading import Thread
 
-# Bot tokenını buraya girin
-BOT_TOKEN = 'YOUR_BOT_TOKEN'
-
-app = Client("my_bot", bot_token=BOT_TOKEN)
-
 # İndirme işlemi sırasında ilerleme durumunu takip etmek için
 progress_message = None
 
