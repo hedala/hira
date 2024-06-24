@@ -27,7 +27,8 @@ async def handle_yt_command(_, message: Message):
             'format': 'bestvideo[height<=1080][vcodec=h264][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]',
             'merge_output_format': 'mp4',
             'progress_hooks': [lambda d: progress_hook(d, start_message)],
-            'outtmpl': 'downloads/%(title)s.%(ext)s'
+            'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
