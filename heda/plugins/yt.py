@@ -1,105 +1,104 @@
+import os
+import yt_dlp
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import yt_dlp
-import os
+from youtube_search import YoutubeSearch
 
-def download_video_quality(video_url, quality_format):
-    ydl_opts = {
-        'format': quality_format,
-        'outtmpl': '%(title)s%(format_id)s.%(ext)s',
-        'progress_hooks': [progress_hook],
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
-
+# İndirme işlemi sırasında ilerleme durumu için hook fonksiyonu
 def progress_hook(d):
     if d['status'] == 'downloading':
-        progress = d['_percent_str']
-        bot.send_message(d['filename'] + ' indiriliyor. ' + progress)
+        percentage = d['_percent_str']
+        app.send_message(chat_id=d['chat_id'], text=f"Video indiriliyor. %{percentage}")
 
-@Client.on_message(filters.command("yt", prefixes="/"))
-def youtube_dl(bot, message):
-    text = message.text.split(maxsplit=1)
-    if len(text) > 1:
-        search_query = text[1]
-        if search_query.startswith("http"):
-            video_url = search_query
-            keyboard = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton("720p", callback_data="720p"),
-                        InlineKeyboardButton("1080p", callback_data="1080p"),
-                        InlineKeyboardButton("2K", callback_data="2K"),
-                        InlineKeyboardButton("4K", callback_data="4K"),
-                        InlineKeyboardButton("Best Video", callback_data="best_video"),
-                    ],
-                    [
-                        InlineKeyboardButton("MP3 128 kbps", callback_data="mp3_128"),
-                        InlineKeyboardButton("MP3 320 kbps", callback_data="mp3_320"),
-                        InlineKeyboardButton("FLAC", callback_data="flac"),
-                        InlineKeyboardButton("Best Audio", callback_data="best_audio"),
-                    ],
-                ]
-            )
-            bot.send_message(message.chat.id, "Video formatını seçin:", reply_markup=keyboard)
-        else:
-            search_results = yt_dlp.YoutubeDL().extract_info(f"ytsearch5:{search_query}", download=False)
-            keyboard = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(search_results['entries'][i]['title'], callback_data=f"result_{i}")
-                    ] for i in range(5)
-                ]
-            )
-            bot.send_message(message.chat.id, "Arama sonuçları:", reply_markup=keyboard)
-    else:
-        bot.send_message(message.chat.id, "Lütfen bir YouTube linki veya arama terimi girin.")
+# İndirme işlemi için yt-dlp seçenekleri
+def get_ydl_opts(format_id, chat_id):
+    return {
+        'format': format_id,
+        'progress_hooks': [progress_hook],
+        'outtmpl': f'%(title)s_{format_id}.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegMetadata',
+        }],
+        'logger': MyLogger(chat_id)
+    }
 
-@Client.on_callback_query()
-def callback_query(bot, update):
-    data = update.data
-    message = update.message
-    if data.startswith("result_"):
-        index = int(data.split("_")[1])
-        video_url = message.reply_markup.inline_keyboard[index][0].url
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton("720p", callback_data="720p"),
-                    InlineKeyboardButton("1080p", callback_data="1080p"),
-                    InlineKeyboardButton("2K", callback_data="2K"),
-                    InlineKeyboardButton("4K", callback_data="4K"),
-                    InlineKeyboardButton("Best Video", callback_data="best_video"),
-                ],
-                [
-                    InlineKeyboardButton("MP3 128 kbps", callback_data="mp3_128"),
-                    InlineKeyboardButton("MP3 320 kbps", callback_data="mp3_320"),
-                    InlineKeyboardButton("FLAC", callback_data="flac"),
-                    InlineKeyboardButton("Best Audio", callback_data="best_audio"),
-                ],
-            ]
-        )
-        bot.send_message(message.chat.id, "Video formatını seçin:", reply_markup=keyboard)
-        bot.answer_callback_query(update.id)
+class MyLogger:
+    def __init__(self, chat_id):
+        self.chat_id = chat_id
+
+    def debug(self, msg):
+        pass
+
+    def info(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
+    def error(self, msg):
+        app.send_message(chat_id=self.chat_id, text=msg)
+
+@Client.on_message(filters.command("yt"))
+def yt_command(client, message):
+    args = message.text.split(maxsplit=1)
+    if len(args) == 1:
+        message.reply("Lütfen bir YouTube linki veya arama terimi girin.")
+        return
+
+    query = args[1]
+    if query.startswith("http"):
+        send_format_options(message, query)
     else:
-        if data.startswith("720p"):
-            quality_format = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
-        elif data.startswith("1080p"):
-            quality_format = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
-        elif data.startswith("2K"):
-            quality_format = 'bestvideo[height<=1440]+bestaudio/best[height<=1440]'
-        elif data.startswith("4K"):
-            quality_format = 'bestvideo[height<=2160]+bestaudio/best[height<=2160]'
-        elif data.startswith("best_video"):
-            quality_format = 'bestvideo+bestaudio/best'
-        elif data.startswith("mp3_128"):
-            quality_format = 'bestaudio/best'
-        elif data.startswith("mp3_320"):
-            quality_format = 'bestaudio/best'
-        elif data.startswith("flac"):
-            quality_format = 'bestaudio/best'
-        elif data.startswith("best_audio"):
-            quality_format = 'bestaudio/best'
-        
-        download_video_quality(video_url, quality_format)
-        bot.answer_callback_query(update.id, "İndirme tamamlandı.")
+        search_youtube(message, query)
+
+def send_format_options(message, url):
+    buttons = [
+        [InlineKeyboardButton("Video", callback_data=f"video|{url}"), InlineKeyboardButton("Müzik", callback_data=f"audio|{url}")]
+    ]
+    message.reply("Hangi formatta indirmek istersiniz?", reply_markup=InlineKeyboardMarkup(buttons))
+
+def search_youtube(message, query):
+    results = YoutubeSearch(query, max_results=5).to_dict()
+    buttons = []
+    for result in results:
+        title = result['title']
+        url = f"https://www.youtube.com{result['url_suffix']}"
+        buttons.append([InlineKeyboardButton(title, callback_data=f"select|{url}")])
+    message.reply("Arama sonuçları:", reply_markup=InlineKeyboardMarkup(buttons))
+
+@Client.on_callback_query(filters.regex(r"select\|"))
+def select_result(client, callback_query):
+    url = callback_query.data.split("|")[1]
+    send_format_options(callback_query.message, url)
+
+@Client.on_callback_query(filters.regex(r"video\|"))
+def video_options(client, callback_query):
+    url = callback_query.data.split("|")[1]
+    buttons = [
+        [InlineKeyboardButton("720p", callback_data=f"download|{url}|bestvideo[height<=720]+bestaudio/best[height<=720]")],
+        [InlineKeyboardButton("1080p", callback_data=f"download|{url}|bestvideo[height<=1080]+bestaudio/best[height<=1080]")],
+        [InlineKeyboardButton("2K", callback_data=f"download|{url}|bestvideo[height<=1440]+bestaudio/best[height<=1440]")],
+        [InlineKeyboardButton("4K", callback_data=f"download|{url}|bestvideo[height<=2160]+bestaudio/best[height<=2160]")],
+        [InlineKeyboardButton("En İyi Kalite", callback_data=f"download|{url}|bestvideo+bestaudio/best")]
+    ]
+    callback_query.message.reply("Video kalitesini seçin:", reply_markup=InlineKeyboardMarkup(buttons))
+
+@Client.on_callback_query(filters.regex(r"audio\|"))
+def audio_options(client, callback_query):
+    url = callback_query.data.split("|")[1]
+    buttons = [
+        [InlineKeyboardButton("MP3 128kbps", callback_data=f"download|{url}|bestaudio[ext=mp3]/best[ext=mp3]/bestaudio[abr<=128]")],
+        [InlineKeyboardButton("MP3 320kbps", callback_data=f"download|{url}|bestaudio[ext=mp3]/best[ext=mp3]/bestaudio[abr<=320]")],
+        [InlineKeyboardButton("FLAC", callback_data=f"download|{url}|bestaudio[ext=flac]/best[ext=flac]")],
+        [InlineKeyboardButton("En İyi Kalite", callback_data=f"download|{url}|bestaudio/best")]
+    ]
+    callback_query.message.reply("Ses kalitesini seçin:", reply_markup=InlineKeyboardMarkup(buttons))
+
+@Client.on_callback_query(filters.regex(r"download\|"))
+def download_media(client, callback_query):
+    _, url, format_id = callback_query.data.split("|")
+    chat_id = callback_query.message.chat.id
+    ydl_opts = get_ydl_opts(format_id, chat_id)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+    callback_query.message.reply("İndirme tamamlandı!")
