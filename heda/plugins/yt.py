@@ -41,43 +41,45 @@ async def handle_yt_command(_, message: Message):
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(link, download=True)
-            video_file = ydl.prepare_filename(info_dict)
-            duration = info_dict.get('duration')
-            title = info_dict.get('title')
-            channel = info_dict.get('channel')
-            view_count = info_dict.get('view_count')
-            upload_date = info_dict.get('upload_date')
+    info_dict = ydl.extract_info(link, download=True)
+    video_file = ydl.prepare_filename(info_dict)
+    duration = info_dict.get('duration')
+    title = info_dict.get('title')
+    channel = info_dict.get('channel')
+    view_count = info_dict.get('view_count')
+    upload_date = info_dict.get('upload_date')
 
-        await start_message.edit_text("Video başarıyla indirildi! Gönderiliyor...")
+    # En kaliteli thumbnail URL'sini al
+    thumbnail_url = info_dict.get('thumbnails', [])[-1]['url']
 
-        caption = (
-            f"📹 Video: {title}\n"
-            f"👤 Kanal: {channel}\n"
-            f"👁️ Görüntülenme: {view_count:,}\n"
-            f"📅 Yüklenme Tarihi: {upload_date}\n"
-            f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
-        )
+await start_message.edit_text("Video başarıyla indirildi! Gönderiliyor...")
 
-        # Thumbnail dosyasını indir
-        thumbnail_url = info_dict.get('thumbnail')
-        if thumbnail_url:
-            thumbnail_file = wget.download(thumbnail_url)
+caption = (
+    f"📹 Video: {title}\n"
+    f"👤 Kanal: {channel}\n"
+    f"👁️ Görüntülenme: {view_count:,}\n"
+    f"📅 Yüklenme Tarihi: {upload_date}\n"
+    f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
+)
 
-        try:
-            await message.reply_video(
-                video=video_file,
-                caption=caption,
-                supports_streaming=True,
-                duration=duration,
-                thumb=thumbnail_file
-            )
-        except Exception as e:
-            log(__name__).error(f"Video gönderme hatası: {str(e)}")
-            await message.reply_text(
-                text="Video gönderilirken bir hata oluştu.",
-                quote=True
-            )
+# Thumbnail dosyasını indir
+thumbnail_file = 'downloads/thumbnail.jpg'
+os.system(f"wget -O {thumbnail_file} {thumbnail_url}")
+
+try:
+    await message.reply_video(
+        video=video_file,
+        caption=caption,
+        supports_streaming=True,
+        duration=duration,
+        thumb=thumbnail_file
+    )
+except Exception as e:
+    log(__name__).error(f"Video gönderme hatası: {str(e)}")
+    await message.reply_text(
+        text="Video gönderilirken bir hata oluştu.",
+        quote=True
+    )
 
         log(__name__).info(
             f"{message.command[0]} command was called by {message.from_user.full_name}."
