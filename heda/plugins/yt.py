@@ -63,7 +63,11 @@ async def handle_yt_command(_, message: Message):
 
         # Thumbnail dosyasının var olduğundan emin ol
         if not os.path.exists(thumbnail_file):
-            thumbnail_file = None
+            # Thumbnail dosyasını manuel olarak indir
+            thumbnail_url = info_dict.get('thumbnail')
+            if thumbnail_url:
+                thumbnail_file = 'downloads/thumbnail.jpg'
+                os.system(f"wget -O {thumbnail_file} {thumbnail_url}")
 
         try:
             await message.reply_video(
