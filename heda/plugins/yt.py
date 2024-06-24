@@ -24,7 +24,7 @@ async def handle_yt_command(_, message: Message):
         )
 
         ydl_opts = {
-            'format': 'bestvideo[height<=1080][vcodec=h264][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]',
+            'format': 'bestvideo[height<=1080][vcodec=h264]+bestaudio/best[height<=1080]',
             'merge_output_format': 'mp4',
             'progress_hooks': [lambda d: progress_hook(d, start_message)],
             'outtmpl': 'downloads/%(title)s.%(ext)s',
@@ -34,14 +34,19 @@ async def handle_yt_command(_, message: Message):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             video_file = ydl.prepare_filename(info_dict)
+            thumbnail_url = info_dict.get('thumbnail')
+            duration = info_dict.get('duration')
 
         await start_message.edit_text(
             text="Video başarıyla indirildi!"
         )
 
+        caption = f"İşte indirdiğiniz video!\nSüre: {duration // 60} dakika {duration % 60} saniye"
+
         await message.reply_video(
             video=video_file,
-            caption="İşte indirdiğiniz video!"
+            caption=caption,
+            thumb=thumbnail_url
         )
 
         log(__name__).info(
