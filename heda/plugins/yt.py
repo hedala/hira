@@ -19,7 +19,7 @@ def download_media(url, format_id):
 def progress_hook(d):
     if d['status'] == 'downloading':
         percentage = d['_percent_str']
-        client.send_message(chat_id, f"Video indiriliyor. %{percentage}")
+        Client.send_message(chat_id, f"Video indiriliyor. %{percentage}")
 
 @Client.on_message(filters.command("yt"))
 async def yt_command(client, message):
@@ -38,12 +38,12 @@ async def send_format_options(chat_id, url):
         [InlineKeyboardButton("Video", callback_data=f"video|{url}")],
         [InlineKeyboardButton("Audio", callback_data=f"audio|{url}")]
     ]
-    await client.send_message(chat_id, "İndirme formatını seçin:", reply_markup=InlineKeyboardMarkup(buttons))
+    await Client.send_message(chat_id, "İndirme formatını seçin:", reply_markup=InlineKeyboardMarkup(buttons))
 
 async def search_youtube(chat_id, query):
     results = YoutubeSearch(query, max_results=5).to_dict()
     buttons = [[InlineKeyboardButton(result['title'], callback_data=f"select|{result['url_suffix']}")] for result in results]
-    await client.send_message(chat_id, "Arama sonuçları:", reply_markup=InlineKeyboardMarkup(buttons))
+    await Client.send_message(chat_id, "Arama sonuçları:", reply_markup=InlineKeyboardMarkup(buttons))
 
 @Client.on_callback_query()
 async def callback_query_handler(client, callback_query):
@@ -71,5 +71,5 @@ async def callback_query_handler(client, callback_query):
     elif action == "download":
         format_id = data[2]
         file_path, info_dict = download_media(url, format_id)
-        await client.send_document(callback_query.message.chat.id, file_path, caption=f"{info_dict['title']} - {format_id}")
+        await Client.send_document(callback_query.message.chat.id, file_path, caption=f"{info_dict['title']} - {format_id}")
         os.remove(file_path)
