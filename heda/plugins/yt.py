@@ -59,11 +59,11 @@ async def handle_yt_command(_, message: Message):
         )
 
         # Thumbnail dosyasını bul
-        for ext in ['.jpg', '.png', '.webp']:
-            possible_thumb = video_file.rsplit(".", 1)[0] + ext
-            if os.path.exists(possible_thumb):
-                thumbnail_file = possible_thumb
-                break
+        thumbnail_file = video_file.rsplit(".", 1)[0] + ".webp"
+
+        # Thumbnail dosyasının var olduğundan emin ol
+        if not os.path.exists(thumbnail_file):
+            thumbnail_file = None
 
         try:
             await message.reply_video(
@@ -104,3 +104,4 @@ async def handle_yt_command(_, message: Message):
             os.remove(video_file)
         if thumbnail_file and os.path.exists(thumbnail_file):
             os.remove(thumbnail_file)
+            
