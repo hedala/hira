@@ -21,4 +21,4 @@ matplotlib
 mplfinance
 pandas
 numpy
-moviepy
+wget
