@@ -2,6 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import yt_dlp
 import os
+import requests
 
 from heda import redis, log
 
@@ -37,6 +38,14 @@ async def handle_yt_command(_, message: Message):
             thumbnail_url = info_dict.get('thumbnail')
             duration = info_dict.get('duration')
 
+        # Thumbnail'i indir
+        thumbnail_file = None
+        if thumbnail_url:
+            thumbnail_response = requests.get(thumbnail_url)
+            thumbnail_file = f"downloads/{info_dict['id']}.jpg"
+            with open(thumbnail_file, 'wb') as f:
+                f.write(thumbnail_response.content)
+
         await start_message.edit_text(
             text="Video başarıyla indirildi!"
         )
@@ -46,7 +55,7 @@ async def handle_yt_command(_, message: Message):
         await message.reply_video(
             video=video_file,
             caption=caption,
-            thumb=thumbnail_url
+            thumb=thumbnail_file
         )
 
         log(__name__).info(
@@ -61,9 +70,11 @@ async def handle_yt_command(_, message: Message):
                 "NEW_USER", user_id
             )
 
-        # İndirilen dosyayı temizleyelim
+        # İndirilen dosyaları temizleyelim
         if os.path.exists(video_file):
             os.remove(video_file)
+        if thumbnail_file and os.path.exists(thumbnail_file):
+            os.remove(thumbnail_file)
 
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
