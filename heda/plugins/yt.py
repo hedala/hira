@@ -24,66 +24,35 @@ async def handle_yt_command(client: Client, message: Message):
         return
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("720p", callback_data=f"yt_dl|720p|{link}")],
-        [InlineKeyboardButton("1080p", callback_data=f"yt_dl|1080p|{link}")],
-        [InlineKeyboardButton("1440p", callback_data=f"yt_dl|1440p|{link}")],
-        [InlineKeyboardButton("2160p", callback_data=f"yt_dl|2160p|{link}")]
+        [InlineKeyboardButton("720p", callback_data=f"720p_{link}")],
+        [InlineKeyboardButton("1080p", callback_data=f"1080p_{link}")],
+        [InlineKeyboardButton("1440p", callback_data=f"1440p_{link}")],
+        [InlineKeyboardButton("2160p", callback_data=f"2160p_{link}")]
     ])
 
     await message.reply_text("Lütfen indirmek istediğiniz kaliteyi seçin:", reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"^yt_dl\|"))
+@Client.on_callback_query()
 async def handle_quality_selection(client: Client, callback_query: CallbackQuery):
-    _, quality, link = callback_query.data.split("|")
-    video_file = None
-    thumb = None
     try:
-        await callback_query.message.edit_text("Video indiriliyor...")
+        quality, link = callback_query.data.split("_", 1)
+        await callback_query.answer(f"Seçilen kalite: {quality}")
+        await callback_query.message.edit_text(f"Video indiriliyor... Kalite: {quality}")
 
-        for user_agent in user_agents:
-            ydl_opts = {
-                'format': quality_options[quality],
-                'merge_output_format': 'mp4',
-                'writethumbnail': True,
-                'postprocessors': [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}],
-                'outtmpl': 'downloads/%(title)s.%(ext)s',
-                'user_agent': user_agent,
-                'nocheckcertificate': True,
-            }
+        video_file, thumb, title, duration = await download_video(link, quality)
 
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info_dict = ydl.extract_info(link, download=True)
-                    video_file = ydl.prepare_filename(info_dict)
-                    title = info_dict.get('title', 'Unknown Title')
-                    duration = info_dict.get('duration')
-                    thumbnails = info_dict.get("thumbnails", [])
-                    jpg_thumbnails = [thumb for thumb in thumbnails if thumb['url'].endswith('.jpg')]
-
-                    if jpg_thumbnails:
-                        highest_thumbnail = max(jpg_thumbnails, key=lambda t: int(t.get('height', 0)))
-                        thumbnail_url = highest_thumbnail['url']
-                        thumb = wget.download(thumbnail_url)
-                break
-            except Exception as e:
-                print(f"Error with user agent {user_agent}: {str(e)}")
-                continue
-
-        if not video_file:
-            raise Exception("Video indirilemedi.")
-
-        await callback_query.message.edit_text("Video başarıyla indirildi! Gönderiliyor...")
-
-        await client.send_video(
-            chat_id=callback_query.message.chat.id,
-            video=video_file,
-            caption=f"📹 Video: {title}",
-            supports_streaming=True,
-            duration=duration,
-            thumb=thumb
-        )
-
-        await callback_query.message.delete()
+        if video_file:
+            await client.send_video(
+                chat_id=callback_query.message.chat.id,
+                video=video_file,
+                caption=f"📹 Video: {title}",
+                supports_streaming=True,
+                duration=duration,
+                thumb=thumb
+            )
+            await callback_query.message.delete()
+        else:
+            await callback_query.message.edit_text("Video indirilemedi.")
 
     except Exception as e:
         await callback_query.message.edit_text(f"Bir hata oluştu: {str(e)}")
@@ -93,5 +62,42 @@ async def handle_quality_selection(client: Client, callback_query: CallbackQuery
         if thumb and os.path.exists(thumb):
             os.remove(thumb)
 
-    await callback_query.answer()
-        
+async def download_video(link, quality):
+    video_file = None
+    thumb = None
+    title = "Unknown Title"
+    duration = None
+
+    for user_agent in user_agents:
+        ydl_opts = {
+            'format': quality_options[quality],
+            'merge_output_format': 'mp4',
+            'writethumbnail': True,
+            'postprocessors': [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}],
+            'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'user_agent': user_agent,
+            'nocheckcertificate': True,
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(link, download=True)
+                video_file = ydl.prepare_filename(info_dict)
+                title = info_dict.get('title', 'Unknown Title')
+                duration = info_dict.get('duration')
+                thumbnails = info_dict.get("thumbnails", [])
+                jpg_thumbnails = [t for t in thumbnails if t['url'].endswith('.jpg')]
+
+                if jpg_thumbnails:
+                    highest_thumbnail = max(jpg_thumbnails, key=lambda t: int(t.get('height', 0)))
+                    thumbnail_url = highest_thumbnail['url']
+                    thumb = wget.download(thumbnail_url)
+            break
+        except Exception as e:
+            print(f"Error with user agent {user_agent}: {str(e)}")
+            continue
+
+    if not video_file:
+        raise Exception("Video indirilemedi.")
+
+    return video_file, thumb, title, duration
