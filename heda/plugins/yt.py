@@ -3,15 +3,13 @@ from pyrogram.types import Message
 import yt_dlp
 import os
 import asyncio
-import time
-from pyrogram.errors import FloodWait
 
 from heda import redis, log
 
 @Client.on_message(filters.command(["yt"]))
 async def handle_yt_command(_, message: Message):
     video_file = None
-    thumbnail_file = None  # Burada tanımlıyoruz
+    thumbnail_file = None
     try:
         user_id = message.from_user.id
         link = message.command[1] if len(message.command) > 1 else None
@@ -24,7 +22,7 @@ async def handle_yt_command(_, message: Message):
             return
 
         start_message = await message.reply_text(
-            text="Video bilgileri alınıyor...",
+            text="Video indiriliyor...",
             quote=True
         )
 
@@ -37,7 +35,6 @@ async def handle_yt_command(_, message: Message):
                 {'key': 'FFmpegMetadata'},
             ],
             'outtmpl': 'downloads/%(title)s.%(ext)s',
-            'progress_hooks': [lambda d: asyncio.ensure_future(progress_hook(d, start_message))],
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'nocheckcertificate': True,
         }
@@ -62,9 +59,11 @@ async def handle_yt_command(_, message: Message):
         )
 
         # Thumbnail dosyasını bul
-        thumbnail_file = video_file.rsplit(".", 1)[0] + ".jpg"
-        if not os.path.exists(thumbnail_file):
-            thumbnail_file = None
+        for ext in ['.jpg', '.png', '.webp']:
+            possible_thumb = video_file.rsplit(".", 1)[0] + ext
+            if os.path.exists(possible_thumb):
+                thumbnail_file = possible_thumb
+                break
 
         try:
             await message.reply_video(
@@ -105,26 +104,3 @@ async def handle_yt_command(_, message: Message):
             os.remove(video_file)
         if thumbnail_file and os.path.exists(thumbnail_file):
             os.remove(thumbnail_file)
-
-last_update_time = 0
-update_interval = 10  # saniye
-
-async def progress_hook(d, start_message):
-    global last_update_time
-    current_time = time.time()
-    
-    if d['status'] == 'downloading':
-        if current_time - last_update_time >= update_interval:
-            percentage = d['_percent_str']
-            speed = d.get('_speed_str', 'N/A')
-            eta = d.get('_eta_str', 'N/A')
-            text = f"Video indiriliyor...\n📊 İlerleme: {percentage}\n🚀 Hız: {speed}\n⏳ Tahmini süre: {eta}"
-            try:
-                await start_message.edit_text(text)
-                last_update_time = current_time
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-            except Exception as e:
-                log(__name__).error(f"İlerleme güncellemesi hatası: {str(e)}")
-    elif d['status'] == 'finished':
-        await start_message.edit_text("Video indirildi. İşleniyor...")
