@@ -1,118 +1,105 @@
-import os
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from yt_dlp import YoutubeDL
-import asyncio
+import yt_dlp
+import os
 
-# YouTube arama fonksiyonu
-async def search_youtube(query):
-    ydl_opts = {"quiet": True, "no_warnings": True}
-    with YoutubeDL(ydl_opts) as ydl:
-        try:
-            search_results = ydl.extract_info(f"ytsearch5:{query}", download=False)['entries']
-            return search_results
-        except Exception as e:
-            print(f"YouTube arama hatası: {e}")
-            return []
-
-# İndirme fonksiyonu
-async def download_youtube(link, format_id, message):
+def download_video_quality(video_url, quality_format):
     ydl_opts = {
-        'format': format_id,
-        'outtmpl': '%(title)s.%(ext)s',
-        'progress_hooks': [lambda d: progress_hook(d, message)],
+        'format': quality_format,
+        'outtmpl': '%(title)s%(format_id)s.%(ext)s',
+        'progress_hooks': [progress_hook],
     }
-    with YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(link, download=True)
-        filename = ydl.prepare_filename(info)
-    return filename, info
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([video_url])
 
-# İlerleme durumu için hook fonksiyonu
-async def progress_hook(d, message):
+def progress_hook(d):
     if d['status'] == 'downloading':
-        percent = d['_percent_str']
-        await message.edit_text(f"Video indiriliyor. {percent}")
+        progress = d['_percent_str']
+        bot.send_message(d['filename'] + ' indiriliyor. ' + progress)
 
-# /yt komutu için handler
-@Client.on_message(filters.command("yt"))
-async def youtube_command(client, message):
-    command = message.text.split(maxsplit=1)
-    if len(command) == 1:
-        await message.reply_text("Lütfen bir YouTube linki veya arama terimi girin.")
-        return
-
-    query = command[1]
-    if "youtube.com" in query or "youtu.be" in query:
-        # Link verilmişse
-        await show_format_buttons(message, query)
+@Client.on_message(filters.command("yt", prefixes="/"))
+def youtube_dl(bot, message):
+    text = message.text.split(maxsplit=1)
+    if len(text) > 1:
+        search_query = text[1]
+        if search_query.startswith("http"):
+            video_url = search_query
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("720p", callback_data="720p"),
+                        InlineKeyboardButton("1080p", callback_data="1080p"),
+                        InlineKeyboardButton("2K", callback_data="2K"),
+                        InlineKeyboardButton("4K", callback_data="4K"),
+                        InlineKeyboardButton("Best Video", callback_data="best_video"),
+                    ],
+                    [
+                        InlineKeyboardButton("MP3 128 kbps", callback_data="mp3_128"),
+                        InlineKeyboardButton("MP3 320 kbps", callback_data="mp3_320"),
+                        InlineKeyboardButton("FLAC", callback_data="flac"),
+                        InlineKeyboardButton("Best Audio", callback_data="best_audio"),
+                    ],
+                ]
+            )
+            bot.send_message(message.chat.id, "Video formatını seçin:", reply_markup=keyboard)
+        else:
+            search_results = yt_dlp.YoutubeDL().extract_info(f"ytsearch5:{search_query}", download=False)
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(search_results['entries'][i]['title'], callback_data=f"result_{i}")
+                    ] for i in range(5)
+                ]
+            )
+            bot.send_message(message.chat.id, "Arama sonuçları:", reply_markup=keyboard)
     else:
-        # Arama terimi verilmişse
-        results = await search_youtube(query)
-        if results:
-            buttons = []
-            for i, video in enumerate(results):
-                buttons.append([InlineKeyboardButton(video['title'], callback_data=f"search_{i}_{query}")])
-            reply_markup = InlineKeyboardMarkup(buttons)
-            await message.reply_text("Arama sonuçları:", reply_markup=reply_markup)
-        else:
-            await message.reply_text("Arama sonucu bulunamadı.")
+        bot.send_message(message.chat.id, "Lütfen bir YouTube linki veya arama terimi girin.")
 
-# Format seçimi için butonları gösterme fonksiyonu
-async def show_format_buttons(message, link):
-    buttons = [
-        [InlineKeyboardButton("Video 720p", callback_data=f"format_720_{link}")],
-        [InlineKeyboardButton("Video 1080p", callback_data=f"format_1080_{link}")],
-        [InlineKeyboardButton("Video 2K", callback_data=f"format_1440_{link}")],
-        [InlineKeyboardButton("Video 4K", callback_data=f"format_2160_{link}")],
-        [InlineKeyboardButton("Best Video", callback_data=f"format_bestvideo_{link}")],
-        [InlineKeyboardButton("Audio MP3 128kbps", callback_data=f"format_mp3_128_{link}")],
-        [InlineKeyboardButton("Audio MP3 320kbps", callback_data=f"format_mp3_320_{link}")],
-        [InlineKeyboardButton("Audio FLAC", callback_data=f"format_flac_{link}")],
-        [InlineKeyboardButton("Best Audio", callback_data=f"format_bestaudio_{link}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(buttons)
-    await message.reply_text("Lütfen indirme formatını seçin:", reply_markup=reply_markup)
-
-# Callback query handler
-@Client.on_callback_query(filters.regex("^(format|search)_"))
-async def callback_query_handler(client, callback_query):
-    data = callback_query.data.split("_")
-    if data[0] == "format":
-        format_id = data[1]
-        link = "_".join(data[2:])
-        await process_download(callback_query.message, link, format_id)
-    elif data[0] == "search":
-        index = int(data[1])
-        query = "_".join(data[2:])
-        results = await search_youtube(query)
-        if index < len(results):
-            video = results[index]
-            await show_format_buttons(callback_query.message, video['webpage_url'])
-        else:
-            await callback_query.answer("Video bulunamadı.")
-            
-
-# İndirme işlemi
-async def process_download(message, link, format_id):
-    progress_message = await message.reply_text("İndirme başlatılıyor...")
-    try:
-        filename, info = await download_youtube(link, format_id, progress_message)
+@Client.on_callback_query()
+def callback_query(bot, update):
+    data = update.data
+    message = update.message
+    if data.startswith("result_"):
+        index = int(data.split("_")[1])
+        video_url = message.reply_markup.inline_keyboard[index][0].url
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("720p", callback_data="720p"),
+                    InlineKeyboardButton("1080p", callback_data="1080p"),
+                    InlineKeyboardButton("2K", callback_data="2K"),
+                    InlineKeyboardButton("4K", callback_data="4K"),
+                    InlineKeyboardButton("Best Video", callback_data="best_video"),
+                ],
+                [
+                    InlineKeyboardButton("MP3 128 kbps", callback_data="mp3_128"),
+                    InlineKeyboardButton("MP3 320 kbps", callback_data="mp3_320"),
+                    InlineKeyboardButton("FLAC", callback_data="flac"),
+                    InlineKeyboardButton("Best Audio", callback_data="best_audio"),
+                ],
+            ]
+        )
+        bot.send_message(message.chat.id, "Video formatını seçin:", reply_markup=keyboard)
+        bot.answer_callback_query(update.id)
+    else:
+        if data.startswith("720p"):
+            quality_format = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
+        elif data.startswith("1080p"):
+            quality_format = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
+        elif data.startswith("2K"):
+            quality_format = 'bestvideo[height<=1440]+bestaudio/best[height<=1440]'
+        elif data.startswith("4K"):
+            quality_format = 'bestvideo[height<=2160]+bestaudio/best[height<=2160]'
+        elif data.startswith("best_video"):
+            quality_format = 'bestvideo+bestaudio/best'
+        elif data.startswith("mp3_128"):
+            quality_format = 'bestaudio/best'
+        elif data.startswith("mp3_320"):
+            quality_format = 'bestaudio/best'
+        elif data.startswith("flac"):
+            quality_format = 'bestaudio/best'
+        elif data.startswith("best_audio"):
+            quality_format = 'bestaudio/best'
         
-        if 'video' in format_id:
-            await message.reply_video(
-                video=filename,
-                caption=f"{info['title']} - {format_id}",
-                duration=info.get('duration'),
-                thumb=info.get('thumbnail'),
-            )
-        else:
-            await message.reply_audio(
-                audio=filename,
-                caption=f"{info['title']} - {format_id}",
-                duration=info.get('duration'),
-            )
-        
-        os.remove(filename)
-        await progress_message.delete()
-    except Exception as e:
-        await progress_message.edit_text(f"İndirme hatası: {str(e)}")
+        download_video_quality(video_url, quality_format)
+        bot.answer_callback_query(update.id, "İndirme tamamlandı.")
