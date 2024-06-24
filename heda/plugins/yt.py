@@ -3,7 +3,7 @@ from pyrogram.types import Message
 import yt_dlp
 import os
 import requests
-import subprocess
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, TextClip
 
 from heda import redis, log
 
@@ -47,15 +47,15 @@ async def handle_yt_command(_, message: Message):
             with open(thumbnail_file, 'wb') as f:
                 f.write(thumbnail_response.content)
 
-        # ffmpeg ile videoya thumbnail ve süre bilgisi ekle
-        output_file = f"downloads/{info_dict['id']}_final.mp4"
+        # moviepy ile videoya thumbnail ve süre bilgisi ekle
+        video_clip = VideoFileClip(video_file)
+        thumbnail_clip = ImageClip(thumbnail_file).set_duration(video_clip.duration).resize(height=240).set_pos(("right", "bottom"))
         duration_text = f"{duration // 60} dakika {duration % 60} saniye"
-        ffmpeg_command = [
-            'ffmpeg', '-i', video_file, '-i', thumbnail_file, '-filter_complex',
-            f"[1:v]scale=320:240[thumb];[0:v][thumb]overlay=W-w-10:H-h-10,drawtext=text='{duration_text}':x=10:y=H-th-10:fontsize=24:fontcolor=white",
-            '-codec:a', 'copy', output_file
-        ]
-        subprocess.run(ffmpeg_command, check=True)
+        text_clip = TextClip(duration_text, fontsize=24, color='white').set_duration(video_clip.duration).set_pos(("left", "bottom"))
+
+        final_clip = CompositeVideoClip([video_clip, thumbnail_clip, text_clip])
+        output_file = f"downloads/{info_dict['id']}_final.mp4"
+        final_clip.write_videofile(output_file, codec='libx264')
 
         await start_message.edit_text(
             text="Video başarıyla indirildi!"
