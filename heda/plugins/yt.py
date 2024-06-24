@@ -3,6 +3,7 @@ from pyrogram.types import Message
 import yt_dlp
 import os
 import asyncio
+from PIL import Image
 
 from heda import redis, log
 
@@ -27,17 +28,17 @@ async def handle_yt_command(_, message: Message):
         )
 
         ydl_opts = {
-    'format': 'bestvideo[height<=1080]+bestaudio/best',
-    'merge_output_format': 'mp4',
-    'writethumbnail': True,
-    'postprocessors': [
-        {'key': 'EmbedThumbnail'},
-        {'key': 'FFmpegMetadata'},
-    ],
-    'outtmpl': 'downloads/%(title)s.%(ext)s',
-    'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
-    'nocheckcertificate': True,
-    'cookiefile': 'cookies.txt',
+            'format': 'bestvideo[height<=1080]+bestaudio/best',
+            'merge_output_format': 'mp4',
+            'writethumbnail': True,
+            'postprocessors': [
+                {'key': 'EmbedThumbnail'},
+                {'key': 'FFmpegMetadata'},
+            ],
+            'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+            'nocheckcertificate': True,
+            'cookiefile': 'cookies.txt',
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -70,7 +71,8 @@ async def handle_yt_command(_, message: Message):
         if thumbnail_file.endswith(".webp"):
             # .webp dosyasını .jpg formatına dönüştür
             jpg_thumbnail = thumbnail_file.replace(".webp", ".jpg")
-            os.system(f"dwebp {thumbnail_file} -o {jpg_thumbnail}")
+            image = Image.open(thumbnail_file)
+            image.save(jpg_thumbnail, "JPEG")
             thumbnail_file = jpg_thumbnail
 
         try:
