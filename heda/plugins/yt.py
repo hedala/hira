@@ -7,6 +7,24 @@ from PIL import Image
 
 from heda import redis, log
 
+def get_best_thumbnail_url(info_dict):
+    thumbnails = info_dict.get('thumbnails', [])
+    if not thumbnails:
+        return None
+    # En yüksek kalitedeki thumbnail'ı döndür
+    return thumbnails[-1].get('url', None)
+
+def add_thumbnail_to_video(video_path, thumbnail_path, output_path):
+    """
+    Videoyu ve thumbnail'ı birleştirir ve sonucu belirtilen çıktı yoluna kaydeder.
+    
+    :param video_path: Video dosyanın yolu
+    :param thumbnail_path: Thumbnail dosyanın yolu
+    :param output_path: Sonuç dosyanın yolu
+    """
+    # FFmpeg kullanarak videoya thumbnail ekler
+    os.system(f"ffmpeg -i {video_path} -i {thumbnail_path} -filter_complex \"[0:v][1:v] overlay=25:25:enable='between(t,0,30)'\" -c:a copy {output_path}")
+
 @Client.on_message(filters.command(["yt"]))
 async def handle_yt_command(_, message: Message):
     video_file = None
@@ -51,9 +69,9 @@ async def handle_yt_command(_, message: Message):
             upload_date = info_dict.get('upload_date')
 
             # En kaliteli thumbnail URL'sini al
-            thumbnail_url = info_dict.get('thumbnails', [])[-1]['url']
+            thumbnail_url = get_best_thumbnail_url(info_dict)
 
-        await start_message.edit_text("Video başarıyla indirildi! Gönderiliyor...")
+        await start_message.edit_text("Video başarıyla indirildi Gönderiliyor...")
 
         caption = (
             f"📹 Video: {title}\n"
@@ -69,15 +87,19 @@ async def handle_yt_command(_, message: Message):
 
         # Thumbnail dosyasının uzantısını kontrol et
         if thumbnail_file.endswith(".webp"):
-            # .webp dosyasını .jpg formatına dönüştür
+            #.webp dosyasını.jpg formatına dönüştür
             jpg_thumbnail = thumbnail_file.replace(".webp", ".jpg")
             image = Image.open(thumbnail_file)
             image.save(jpg_thumbnail, "JPEG")
             thumbnail_file = jpg_thumbnail
 
+        # Thumbnail'ı videoya eklemek için
+        output_video_path = 'downloads/video_with_thumbnail.mp4'
+        add_thumbnail_to_video(video_file, thumbnail_file, output_video_path)
+
         try:
             await message.reply_video(
-                video=video_file,
+                video=output_video_path,
                 caption=caption,
                 supports_streaming=True,
                 duration=duration,
@@ -114,4 +136,4 @@ async def handle_yt_command(_, message: Message):
             os.remove(video_file)
         if thumbnail_file and os.path.exists(thumbnail_file):
             os.remove(thumbnail_file)
-            
+    
