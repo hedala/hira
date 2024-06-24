@@ -27,16 +27,17 @@ async def handle_yt_command(_, message: Message):
         )
 
         ydl_opts = {
-            'format': 'bestvideo[height<=1080]+bestaudio/best',
-            'merge_output_format': 'mp4',
-            'writethumbnail': True,
-            'postprocessors': [
-                {'key': 'EmbedThumbnail'},
-                {'key': 'FFmpegMetadata'},
-            ],
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'nocheckcertificate': True,
+    'format': 'bestvideo[height<=1080]+bestaudio/best',
+    'merge_output_format': 'mp4',
+    'writethumbnail': True,
+    'postprocessors': [
+        {'key': 'EmbedThumbnail'},
+        {'key': 'FFmpegMetadata'},
+    ],
+    'outtmpl': 'downloads/%(title)s.%(ext)s',
+    'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+    'nocheckcertificate': True,
+    'cookiefile': 'cookies.txt',
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
