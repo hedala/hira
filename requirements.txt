@@ -23,4 +23,4 @@ pandas
 numpy
 threading
 ffmpeg
-moviepy
+pillow
