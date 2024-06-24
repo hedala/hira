@@ -1,29 +1,23 @@
-from pyrogram import Client, filters
-from pyrogram.types import Message
 import yt_dlp
 import os
 import asyncio
+from pyrogram import Client, filters
+from pyrogram.types import Message
 from PIL import Image
 
 from heda import redis, log
 
-def get_best_thumbnail_url(info_dict):
+def get_best_thumbnail(info_dict):
+    """En kaliteli thumbnail URL'sini döndürür."""
     thumbnails = info_dict.get('thumbnails', [])
-    if not thumbnails:
-        return None
-    # En yüksek kalitedeki thumbnail'ı döndür
-    return thumbnails[-1].get('url', None)
+    best_thumbnail = max(thumbnails, key=lambda x: x['width'] * x['height'])
+    return best_thumbnail['url']
 
-def add_thumbnail_to_video(video_path, thumbnail_path, output_path):
-    """
-    Videoyu ve thumbnail'ı birleştirir ve sonucu belirtilen çıktı yoluna kaydeder.
-    
-    :param video_path: Video dosyanın yolu
-    :param thumbnail_path: Thumbnail dosyanın yolu
-    :param output_path: Sonuç dosyanın yolu
-    """
-    # FFmpeg kullanarak videoya thumbnail ekler
-    os.system(f"ffmpeg -i {video_path} -i {thumbnail_path} -filter_complex \"[0:v][1:v] overlay=25:25:enable='between(t,0,30)'\" -c:a copy {output_path}")
+async def embed_thumbnail(video_file, thumbnail_file):
+    """Videoya thumbnail ekler."""
+    cmd = f'ffmpeg -i "{video_file}" -i "{thumbnail_file}" -map 0 -map 1 -c copy -c:v copy -c:a copy -metadata:s:v:0 title="Album cover" -metadata:s:v:0 comment="Cover (front)" "{video_file}_with_thumb.mp4"'
+    os.system(cmd)
+    os.rename(f"{video_file}_with_thumb.mp4", video_file)
 
 @Client.on_message(filters.command(["yt"]))
 async def handle_yt_command(_, message: Message):
@@ -45,83 +39,90 @@ async def handle_yt_command(_, message: Message):
             quote=True
         )
 
-        ydl_opts = {
-            'format': 'bestvideo[height<=1080]+bestaudio/best',
-            'merge_output_format': 'mp4',
-            'writethumbnail': True,
-            'postprocessors': [
-                {'key': 'EmbedThumbnail'},
-                {'key': 'FFmpegMetadata'},
-            ],
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
-            'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
-            'nocheckcertificate': True,
-            'cookiefile': 'cookies.txt',
-        }
+        # Farklı User-Agentler
+        user_agents = [
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+            'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36',
+            # Ekleyebileceğiniz daha fazla User-Agent...
+        ]
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(link, download=True)
-            video_file = ydl.prepare_filename(info_dict)
-            duration = info_dict.get('duration')
-            title = info_dict.get('title')
-            channel = info_dict.get('channel')
-            view_count = info_dict.get('view_count')
-            upload_date = info_dict.get('upload_date')
+        for user_agent in user_agents:
+            ydl_opts = {
+                'format': 'bestvideo[height<=1080]+bestaudio/best',
+                'merge_output_format': 'mp4',
+                'writethumbnail': True,
+                'postprocessors': [
+                    {'key': 'EmbedThumbnail'},
+                    {'key': 'FFmpegMetadata'},
+                ],
+                'outtmpl': 'downloads/%(title)s.%(ext)s',
+                'user_agent': user_agent,
+                'nocheckcertificate': True,
+                'cookiefile': 'cookies.txt',
+            }
 
-            # En kaliteli thumbnail URL'sini al
-            thumbnail_url = get_best_thumbnail_url(info_dict)
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info_dict = ydl.extract_info(link, download=True)
+                    video_file = ydl.prepare_filename(info_dict)
+                    duration = info_dict.get('duration')
+                    title = info_dict.get('title')
+                    channel = info_dict.get('channel')
+                    view_count = info_dict.get('view_count')
+                    upload_date = info_dict.get('upload_date')
 
-        await start_message.edit_text("Video başarıyla indirildi Gönderiliyor...")
+                thumbnail_url = get_best_thumbnail(info_dict)
 
-        caption = (
-            f"📹 Video: {title}\n"
-            f"👤 Kanal: {channel}\n"
-            f"👁️ Görüntülenme: {view_count:,}\n"
-            f"📅 Yüklenme Tarihi: {upload_date}\n"
-            f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
-        )
+                await start_message.edit_text("Video başarıyla indirildi Gönderiliyor...")
 
-        # Thumbnail dosyasını indir
-        thumbnail_file = 'downloads/thumbnail.webp'
-        os.system(f"wget -O {thumbnail_file} {thumbnail_url}")
+                caption = (
+                    f"📹 Video: {title}\n"
+                    f"👤 Kanal: {channel}\n"
+                    f"👁️ Görüntülenme: {view_count:,}\n"
+                    f"📅 Yüklenme Tarihi: {upload_date}\n"
+                    f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
+                )
 
-        # Thumbnail dosyasının uzantısını kontrol et
-        if thumbnail_file.endswith(".webp"):
-            #.webp dosyasını.jpg formatına dönüştür
-            jpg_thumbnail = thumbnail_file.replace(".webp", ".jpg")
-            image = Image.open(thumbnail_file)
-            image.save(jpg_thumbnail, "JPEG")
-            thumbnail_file = jpg_thumbnail
+                thumbnail_file = 'downloads/thumbnail.jpg'
+                os.system(f"wget -O {thumbnail_file} {thumbnail_url}")
 
-        # Thumbnail'ı videoya eklemek için
-        output_video_path = 'downloads/video_with_thumbnail.mp4'
-        add_thumbnail_to_video(video_file, thumbnail_file, output_video_path)
+                # Thumbnail dosyasının uzantısını kontrol et ve dönüştür
+                if thumbnail_file.endswith(".webp"):
+                    jpg_thumbnail = thumbnail_file.replace(".webp", ".jpg")
+                    image = Image.open(thumbnail_file)
+                    image.save(jpg_thumbnail, "JPEG")
+                    thumbnail_file = jpg_thumbnail
 
-        try:
-            await message.reply_video(
-                video=output_video_path,
-                caption=caption,
-                supports_streaming=True,
-                duration=duration,
-                thumb=thumbnail_file
-            )
-        except Exception as e:
-            log(__name__).error(f"Video gönderme hatası: {str(e)}")
+                # Videoya thumbnail ekleyin
+                await embed_thumbnail(video_file, thumbnail_file)
+
+                try:
+                    await message.reply_video(
+                        video=video_file,
+                        caption=caption,
+                        supports_streaming=True,
+                        duration=duration,
+                        thumb=thumbnail_file
+                    )
+                except Exception as e:
+                    log(__name__).error(f"Video gönderme hatası: {str(e)}")
+                    await message.reply_text(
+                        text="Video gönderilirken bir hata oluştu.",
+                        quote=True
+                    )
+                    continue  # Bu User-Agent ile başarısız oldu, bir sonraki için devam et
+
+                break  # Başarılı indirme, döngüyü sonlandır
+
+            except yt_dlp.DownloadError as e:
+                log(__name__).error(f"Video indirme hatası: {str(e)}")
+                continue  # Bu User-Agent ile başarısız oldu, bir sonraki için devam et
+
+        if video_file is None:
             await message.reply_text(
-                text="Video gönderilirken bir hata oluştu.",
+                text="Tüm User-Agentler ile video indirme işlemi başarısız oldu.",
                 quote=True
-            )
-
-        log(__name__).info(
-            f"{message.command[0]} command was called by {message.from_user.full_name}."
-        )
-
-        new_user = await redis.is_added(
-            "NEW_USER", user_id
-        )
-        if not new_user:
-            await redis.add_to_db(
-                "NEW_USER", user_id
             )
 
     except Exception as e:
@@ -136,4 +137,4 @@ async def handle_yt_command(_, message: Message):
             os.remove(video_file)
         if thumbnail_file and os.path.exists(thumbnail_file):
             os.remove(thumbnail_file)
-    
+                    
