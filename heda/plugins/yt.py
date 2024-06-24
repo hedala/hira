@@ -4,6 +4,7 @@ import yt_dlp
 import os
 import asyncio
 import time
+from pyrogram.errors import FloodWait
 
 from heda import redis, log
 
@@ -25,7 +26,7 @@ async def handle_yt_command(_, message: Message):
             quote=True
         )
 
-        video_file = None  # Initialize video_file to None
+        video_file = None
 
         ydl_opts = {
             'format': 'bestvideo[height<=1080]+bestaudio/best',
@@ -33,6 +34,7 @@ async def handle_yt_command(_, message: Message):
             'writethumbnail': True,
             'postprocessors': [
                 {'key': 'EmbedThumbnail'},
+                {'key': 'FFmpegMetadata'},
             ],
             'outtmpl': 'downloads/%(title)s.%(ext)s',
             'progress_hooks': [lambda d: asyncio.ensure_future(progress_hook(d, start_message))],
@@ -58,13 +60,10 @@ async def handle_yt_command(_, message: Message):
             f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
         )
 
-        # Find the thumbnail file
-        thumbnail_file = None
-        for ext in ['.jpg', '.png', '.webp']:
-            possible_thumb = video_file.rsplit(".", 1)[0] + ext
-            if os.path.exists(possible_thumb):
-                thumbnail_file = possible_thumb
-                break
+        # Thumbnail dosyasını bul
+        thumbnail_file = video_file.rsplit(".", 1)[0] + ".jpg"
+        if not os.path.exists(thumbnail_file):
+            thumbnail_file = None
 
         try:
             await message.reply_video(
@@ -107,7 +106,7 @@ async def handle_yt_command(_, message: Message):
             os.remove(thumbnail_file)
 
 last_update_time = 0
-update_interval = 3  # seconds
+update_interval = 10  # saniye
 
 async def progress_hook(d, start_message):
     global last_update_time
@@ -122,6 +121,8 @@ async def progress_hook(d, start_message):
             try:
                 await start_message.edit_text(text)
                 last_update_time = current_time
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
             except Exception as e:
                 log(__name__).error(f"İlerleme güncellemesi hatası: {str(e)}")
     elif d['status'] == 'finished':
