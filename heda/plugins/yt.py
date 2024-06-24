@@ -10,6 +10,8 @@ from heda import redis, log
 
 @Client.on_message(filters.command(["yt"]))
 async def handle_yt_command(_, message: Message):
+    video_file = None
+    thumbnail_file = None  # Burada tanımlıyoruz
     try:
         user_id = message.from_user.id
         link = message.command[1] if len(message.command) > 1 else None
@@ -26,8 +28,6 @@ async def handle_yt_command(_, message: Message):
             quote=True
         )
 
-        video_file = None
-
         ydl_opts = {
             'format': 'bestvideo[height<=1080]+bestaudio/best',
             'merge_output_format': 'mp4',
@@ -38,7 +38,8 @@ async def handle_yt_command(_, message: Message):
             ],
             'outtmpl': 'downloads/%(title)s.%(ext)s',
             'progress_hooks': [lambda d: asyncio.ensure_future(progress_hook(d, start_message))],
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'nocheckcertificate': True,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
