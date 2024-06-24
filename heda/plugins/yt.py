@@ -3,6 +3,7 @@ from pyrogram.types import Message
 import yt_dlp
 import os
 import requests
+import subprocess
 
 from heda import redis, log
 
@@ -46,6 +47,16 @@ async def handle_yt_command(_, message: Message):
             with open(thumbnail_file, 'wb') as f:
                 f.write(thumbnail_response.content)
 
+        # ffmpeg ile videoya thumbnail ve süre bilgisi ekle
+        output_file = f"downloads/{info_dict['id']}_final.mp4"
+        duration_text = f"{duration // 60} dakika {duration % 60} saniye"
+        ffmpeg_command = [
+            'ffmpeg', '-i', video_file, '-i', thumbnail_file, '-filter_complex',
+            f"[1:v]scale=320:240[thumb];[0:v][thumb]overlay=W-w-10:H-h-10,drawtext=text='{duration_text}':x=10:y=H-th-10:fontsize=24:fontcolor=white",
+            '-codec:a', 'copy', output_file
+        ]
+        subprocess.run(ffmpeg_command, check=True)
+
         await start_message.edit_text(
             text="Video başarıyla indirildi!"
         )
@@ -53,9 +64,8 @@ async def handle_yt_command(_, message: Message):
         caption = f"İşte indirdiğiniz video!\nSüre: {duration // 60} dakika {duration % 60} saniye"
 
         await message.reply_video(
-            video=video_file,
-            caption=caption,
-            thumb=thumbnail_file
+            video=output_file,
+            caption=caption
         )
 
         log(__name__).info(
@@ -75,6 +85,8 @@ async def handle_yt_command(_, message: Message):
             os.remove(video_file)
         if thumbnail_file and os.path.exists(thumbnail_file):
             os.remove(thumbnail_file)
+        if os.path.exists(output_file):
+            os.remove(output_file)
 
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
