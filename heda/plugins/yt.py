@@ -1,26 +1,24 @@
-import yt_dlp
-import os
-import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
+import yt_dlp
+import os
+import traceback
 from PIL import Image
-
+import wget
 from heda import redis, log
 
-def get_best_thumbnail(info_dict):
-    """En kaliteli thumbnail URL'sini döndürür."""
-    thumbnails = info_dict.get('thumbnails', [])
-    valid_thumbnails = [t for t in thumbnails if 'width' in t and 'height' in t]
-    if not valid_thumbnails:
-        return None
-    best_thumbnail = max(valid_thumbnails, key=lambda x: x['width'] * x['height'])
-    return best_thumbnail['url']
-
-async def embed_thumbnail(video_file, thumbnail_file):
-    """Videoya thumbnail ekler."""
-    cmd = f'ffmpeg -i "{video_file}" -i "{thumbnail_file}" -map 0 -map 1 -c copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v:1 attached_pic "{video_file}_with_thumb.mp4"'
-    os.system(cmd)
-    os.rename(f"{video_file}_with_thumb.mp4", video_file)
+user_agents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:89.0) Gecko/20100101 Firefox/89.0',
+    'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/91.0.864.59',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15'
+]
 
 @Client.on_message(filters.command(["yt"]))
 async def handle_yt_command(_, message: Message):
@@ -41,14 +39,6 @@ async def handle_yt_command(_, message: Message):
             text="Video indiriliyor...",
             quote=True
         )
-
-        # Farklı User-Agentler
-        user_agents = [
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
-            'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36',
-            # Ekleyebileceğiniz daha fazla User-Agent...
-        ]
 
         for user_agent in user_agents:
             ydl_opts = {
@@ -74,60 +64,54 @@ async def handle_yt_command(_, message: Message):
                     channel = info_dict.get('channel')
                     view_count = info_dict.get('view_count')
                     upload_date = info_dict.get('upload_date')
+                    thumbnails = info_dict.get("thumbnails", [])
+                    jpg_thumbnails = [thumb for thumb in thumbnails if thumb['url'].endswith('.jpg')]
 
-                thumbnail_url = get_best_thumbnail(info_dict)
-                if thumbnail_url is None:
-                    raise Exception("Geçerli bir thumbnail bulunamadı.")
+                    thumb = None
+                    if jpg_thumbnails:
+                        highest_thumbnail = max(jpg_thumbnails, key=lambda t: int(t['id']))
+                        thumbnail_url = highest_thumbnail['url']
+                        thumb = wget.download(thumbnail_url)
+                break  # Başarılı olursa döngüyü kır
+            except Exception as e:
+                log(__name__).error(f"User-agent {user_agent} ile hata oluştu: {str(e)}")
+                continue  # Hata olursa bir sonraki user-agent'a geç
 
-                await start_message.edit_text("Video başarıyla indirildi Gönderiliyor...")
+        await start_message.edit_text("Video başarıyla indirildi! Gönderiliyor...")
 
-                caption = (
-                    f"📹 Video: {title}\n"
-                    f"👤 Kanal: {channel}\n"
-                    f"👁️ Görüntülenme: {view_count:,}\n"
-                    f"📅 Yüklenme Tarihi: {upload_date}\n"
-                    f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
-                )
+        caption = (
+            f"📹 Video: {title}\n"
+            f"👤 Kanal: {channel}\n"
+            f"👁️ Görüntülenme: {view_count:,}\n"
+            f"📅 Yüklenme Tarihi: {upload_date}\n"
+            f"⏱️ Süre: {duration // 60} dakika {duration % 60} saniye"
+        )
 
-                thumbnail_file = 'downloads/thumbnail.jpg'
-                os.system(f"wget -O {thumbnail_file} {thumbnail_url}")
-
-                # Thumbnail dosyasının uzantısını kontrol et ve dönüştür
-                if thumbnail_file.endswith(".webp"):
-                    jpg_thumbnail = thumbnail_file.replace(".webp", ".jpg")
-                    image = Image.open(thumbnail_file)
-                    image.save(jpg_thumbnail, "JPEG")
-                    thumbnail_file = jpg_thumbnail
-
-                # Videoya thumbnail ekleyin
-                await embed_thumbnail(video_file, thumbnail_file)
-
-                try:
-                    await message.reply_video(
-                        video=video_file,
-                        caption=caption,
-                        supports_streaming=True,
-                        duration=duration,
-                        thumb=thumbnail_file
-                    )
-                except Exception as e:
-                    log(__name__).error(f"Video gönderme hatası: {str(e)}")
-                    await message.reply_text(
-                        text="Video gönderilirken bir hata oluştu.",
-                        quote=True
-                    )
-                    continue  # Bu User-Agent ile başarısız oldu, bir sonraki için devam et
-
-                break  # Başarılı indirme, döngüyü sonlandır
-
-            except yt_dlp.DownloadError as e:
-                log(__name__).error(f"Video indirme hatası: {str(e)}")
-                continue  # Bu User-Agent ile başarısız oldu, bir sonraki için devam et
-
-        if video_file is None:
+        try:
+            await message.reply_video(
+                video=video_file,
+                caption=caption,
+                supports_streaming=True,
+                duration=duration,
+                thumb=thumb
+            )
+        except Exception as e:
+            log(__name__).error(f"Video gönderme hatası: {str(e)}")
             await message.reply_text(
-                text="Tüm User-Agentler ile video indirme işlemi başarısız oldu.",
+                text="Video gönderilirken bir hata oluştu.",
                 quote=True
+            )
+
+        log(__name__).info(
+            f"{message.command[0]} command was called by {message.from_user.full_name}."
+        )
+
+        new_user = await redis.is_added(
+            "NEW_USER", user_id
+        )
+        if not new_user:
+            await redis.add_to_db(
+                "NEW_USER", user_id
             )
 
     except Exception as e:
@@ -140,5 +124,6 @@ async def handle_yt_command(_, message: Message):
         # İndirilen dosyaları temizleyelim
         if video_file and os.path.exists(video_file):
             os.remove(video_file)
-        if thumbnail_file and os.path.exists(thumbnail_file):
-            os.remove(thumbnail_file)
+        if thumb and os.path.exists(thumb):
+            os.remove(thumb)
+                
