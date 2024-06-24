@@ -1,5 +1,5 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 import yt_dlp
 import os
 import wget
@@ -10,15 +10,15 @@ user_agents = [
 ]
 
 quality_options = {
-    "720p": "bestvideo[height<=720]+bestaudio/best",
-    "1080p": "bestvideo[height<=1080]+bestaudio/best",
-    "1440p": "bestvideo[height<=1440]+bestaudio/best",
-    "2160p": "bestvideo[height<=2160]+bestaudio/best"
+    "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
+    "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+    "1440p": "bestvideo[height<=1440]+bestaudio/best[height<=1440]",
+    "2160p": "bestvideo[height<=2160]+bestaudio/best[height<=2160]"
 }
 
 @Client.on_message(filters.command(["yt"]))
-async def handle_yt_command(_, message: Message):
-    link = message.command[1] if len(message.command) > 1 else None
+async def handle_yt_command(client: Client, message: Message):
+    link = message.text.split(None, 1)[1] if len(message.text.split()) > 1 else None
     if not link:
         await message.reply_text("Lütfen bir YouTube linki sağlayın.", quote=True)
         return
@@ -32,8 +32,8 @@ async def handle_yt_command(_, message: Message):
 
     await message.reply_text("Lütfen indirmek istediğiniz kaliteyi seçin:", reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"yt_dl\|"))
-async def handle_quality_selection(client, callback_query):
+@Client.on_callback_query(filters.regex(r"^yt_dl\|"))
+async def handle_quality_selection(client: Client, callback_query: CallbackQuery):
     _, quality, link = callback_query.data.split("|")
     video_file = None
     thumb = None
@@ -55,18 +55,22 @@ async def handle_quality_selection(client, callback_query):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info_dict = ydl.extract_info(link, download=True)
                     video_file = ydl.prepare_filename(info_dict)
-                    title = info_dict.get('title')
+                    title = info_dict.get('title', 'Unknown Title')
                     duration = info_dict.get('duration')
                     thumbnails = info_dict.get("thumbnails", [])
                     jpg_thumbnails = [thumb for thumb in thumbnails if thumb['url'].endswith('.jpg')]
 
                     if jpg_thumbnails:
-                        highest_thumbnail = max(jpg_thumbnails, key=lambda t: int(t['id']))
+                        highest_thumbnail = max(jpg_thumbnails, key=lambda t: int(t.get('height', 0)))
                         thumbnail_url = highest_thumbnail['url']
                         thumb = wget.download(thumbnail_url)
                 break
-            except Exception:
+            except Exception as e:
+                print(f"Error with user agent {user_agent}: {str(e)}")
                 continue
+
+        if not video_file:
+            raise Exception("Video indirilemedi.")
 
         await callback_query.message.edit_text("Video başarıyla indirildi! Gönderiliyor...")
 
@@ -79,6 +83,8 @@ async def handle_quality_selection(client, callback_query):
             thumb=thumb
         )
 
+        await callback_query.message.delete()
+
     except Exception as e:
         await callback_query.message.edit_text(f"Bir hata oluştu: {str(e)}")
     finally:
@@ -86,4 +92,6 @@ async def handle_quality_selection(client, callback_query):
             os.remove(video_file)
         if thumb and os.path.exists(thumb):
             os.remove(thumb)
-    
+
+    await callback_query.answer()
+        
