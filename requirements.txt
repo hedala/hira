@@ -21,3 +21,4 @@ matplotlib
 mplfinance
 pandas
 numpy
+threading
