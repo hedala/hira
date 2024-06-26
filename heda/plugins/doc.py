@@ -3,7 +3,7 @@ import aiohttp
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message
 
-paste_api_url = "https://api.pastes.dev/post"
+paste_api_url = "https://dpaste.org/api/"
 
 supported_extensions = [
     ".txt", ".py", ".js", ".html", ".css", ".json", ".xml", ".csv", ".tsv",
@@ -16,10 +16,12 @@ supported_extensions = [
 
 async def paste_content(content):
     async with aiohttp.ClientSession() as session:
-        headers = {"Content-Type": "text/plain", "User-Agent": "Telegram Bot"}
-        async with session.post(paste_api_url, data=content, headers=headers) as response:
+        headers = {"Content-Type": "application/json", "User-Agent": "Telegram Bot"}
+        data = {"content": content, "syntax": "text"}
+        async with session.post(paste_api_url, json=data, headers=headers) as response:
             if response.status == 201:
-                return response.headers["Location"]
+                response_json = await response.json()
+                return response_json.get("url")
             else:
                 return None
 
@@ -35,7 +37,7 @@ async def open_file(client, message: Message):
             with open(file_path, "r") as file:
                 content = file.read()
             
-            if len(content) <= 4000:
+            if len(content) <= 4090:
                 await message.reply(f"`{content}`", parse_mode=enums.ParseMode.MARKDOWN)
             else:
                 paste_url = await paste_content(content)
@@ -63,3 +65,4 @@ async def create_document(client, message: Message):
         os.remove(file_name)
     else:
         await message.reply("Lütfen bir metni yanıtlayın.")
+        
