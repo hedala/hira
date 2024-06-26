@@ -10,14 +10,16 @@ import time
 
 MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024  # 4GB
 
-async def progress(current, total, message: Message, action: str):
+async def progress(current, total, message: Message, action: str, last_percentage: list):
     try:
         if total == 0:
             percentage = 0
         else:
             percentage = current * 100 / total
-        progress_bar = "█" * int(percentage / 5) + "░" * (20 - int(percentage / 5))
-        await message.edit_text(f"{action}: {percentage:.1f}%\n[{progress_bar}]")
+        if int(percentage) != last_percentage[0]:
+            last_percentage[0] = int(percentage)
+            progress_bar = "█" * int(percentage / 5) + "░" * (20 - int(percentage / 5))
+            await message.edit_text(f"{action}: {percentage:.1f}%\n[{progress_bar}]")
     except FloodWait as e:
         time.sleep(e.x)
 
@@ -51,13 +53,18 @@ async def unzip_file(client, message):
 
     # İndirme ilerlemesini gösteren mesaj
     progress_message = await message.reply("Dosya indiriliyor... 🏃‍♂️")
+    last_percentage = [0]
 
     # Dosyayı indir
-    zip_path = await client.download_media(
-        zip_document,
-        progress=progress,
-        progress_args=(progress_message, "İndirme")
-    )
+    try:
+        zip_path = await client.download_media(
+            zip_document,
+            progress=progress,
+            progress_args=(progress_message, "İndirme", last_percentage)
+        )
+    except Exception as e:
+        await progress_message.edit_text(f"İndirme hatası: {str(e)}")
+        return
 
     # Geçici bir dizin oluştur
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -68,7 +75,11 @@ async def unzip_file(client, message):
                     zip_ref.extractall(temp_dir)
             elif file_name.endswith(".zip.001") or file_name.endswith(".7z"):
                 # 7-Zip komut satırı aracını kullanarak dosyayı çıkar
-                subprocess.run(['7z', 'x', zip_path, f'-o{temp_dir}'], check=True)
+                try:
+                    subprocess.run(['7z', 'x', zip_path, f'-o{temp_dir}'], check=True)
+                except FileNotFoundError:
+                    await message.reply("7z komutu bulunamadı. Lütfen 7-Zip'in kurulu olduğundan ve PATH değişkenine eklendiğinden emin olun.")
+                    return
 
             # Çıkarılan dosyaları kullanıcıya gönder
             for root, dirs, files in os.walk(temp_dir):
@@ -77,18 +88,19 @@ async def unzip_file(client, message):
                     if os.path.getsize(file_path) > 0:
                         # Yükleme ilerlemesini gösteren mesaj
                         upload_progress_message = await message.reply(f"{file} yükleniyor... 🚀")
+                        last_percentage = [0]
                         await client.send_document(
                             message.chat.id,
                             file_path,
                             progress=progress,
-                            progress_args=(upload_progress_message, "Yükleme")
+                            progress_args=(upload_progress_message, "Yükleme", last_percentage)
                         )
                         await upload_progress_message.delete()
                     else:
                         await message.reply(f"{file} dosyası boş olduğu için gönderilemiyor.")
 
-        except (zipfile.BadZipFile, subprocess.CalledProcessError):
-            await message.reply("Geçersiz bir dosya.")
+        except (zipfile.BadZipFile, subprocess.CalledProcessError) as e:
+            await message.reply(f"Geçersiz bir dosya: {str(e)}")
         finally:
             # İndirilen zip dosyasını sil
             os.remove(zip_path)
