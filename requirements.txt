@@ -26,3 +26,5 @@ aria2p
 youtube-dl
 dotenv
 wget
+tempfile
+zipfile
