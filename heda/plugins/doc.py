@@ -35,7 +35,7 @@ async def open_file(client, message: Message):
             with open(file_path, "r") as file:
                 content = file.read()
             
-            if len(content) <= 4096:
+            if len(content) <= 4000:
                 await message.reply(f"`{content}`", parse_mode=enums.ParseMode.MARKDOWN)
             else:
                 paste_url = await paste_content(content)
