@@ -108,13 +108,13 @@ async def periodic_cache_update():
         await asyncio.sleep(20)
         await update_cache("1h", top=True)
         await update_cache("1h", top=False)
-        await asyncio.sleep(40)
+        await asyncio.sleep(20)
         await update_cache("4h", top=True)
         await update_cache("4h", top=False)
-        await asyncio.sleep(60)
+        await asyncio.sleep(20)
         await update_cache("1d", top=True)
         await update_cache("1d", top=False)
-        await asyncio.sleep(80)
+        await asyncio.sleep(60)
 
 @Client.on_message(filters.command("ch"))
 async def send_initial_buttons(client, message):
