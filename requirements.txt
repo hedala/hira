@@ -23,6 +23,5 @@ pandas
 numpy
 pillow
 youtube-dl
-zipfile
 wget
 pyzipper
