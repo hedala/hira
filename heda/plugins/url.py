@@ -10,9 +10,6 @@ ARIA2_RPC_HOST = "http://localhost"
 ARIA2_RPC_PORT = 6800
 ARIA2_RPC_SECRET = "HEDALA"
 
-# Pyrogram istemcisi
-app = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-
 # Aria2 istemcisi
 aria2 = API(
     Aria2Client(
