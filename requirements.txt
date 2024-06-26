@@ -28,4 +28,3 @@ dotenv
 tempfile
 zipfile
 wget
-git+https://github.com/miurahr/py7zr
