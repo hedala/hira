@@ -7,9 +7,14 @@ from pyrogram.types import Message
 from pyrogram.errors import FloodWait
 import time
 
+MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024  # 4GB
+
 async def progress(current, total, message: Message, action: str):
     try:
-        percentage = current * 100 / total
+        if total == 0:
+            percentage = 0
+        else:
+            percentage = current * 100 / total
         progress_bar = "█" * int(percentage / 5) + "░" * (20 - int(percentage / 5))
         await message.edit_text(f"{action}: {percentage:.1f}%\n[{progress_bar}]")
     except FloodWait as e:
@@ -23,10 +28,25 @@ async def unzip_file(client, message):
 
     zip_document = message.reply_to_message.document
     file_name = zip_document.file_name
+    file_size = zip_document.file_size
 
     if not (file_name.endswith(".zip") or file_name.endswith(".zip.001") or file_name.endswith(".7z")):
         await message.reply("Lütfen bir zip, zip.001 veya 7z dosyası gönderin.")
         return
+
+    if file_size > MAX_FILE_SIZE:
+        await message.reply("Dosya boyutu 4GB'ı aşamaz.")
+        return
+
+    # Dosya bilgilerini göster
+    info_message = await message.reply(
+        f"Dosya Adı: {file_name}\n"
+        f"Dosya Boyutu: {file_size / (1024 * 1024):.2f} MB\n"
+        "İndirme 5 saniye içinde başlayacak..."
+    )
+
+    # 5 saniye bekle
+    await asyncio.sleep(5)
 
     # İndirme ilerlemesini gösteren mesaj
     progress_message = await message.reply("Dosya indiriliyor... 🏃‍♂️")
@@ -74,4 +94,5 @@ async def unzip_file(client, message):
 
     # İndirme ilerlemesi mesajını sil
     await progress_message.delete()
+    await info_message.delete()
     
