@@ -25,4 +25,4 @@ pillow
 youtube-dl
 wget
 tempfile
-libarchive
+subprocess
