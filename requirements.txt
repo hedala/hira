@@ -22,9 +22,7 @@ mplfinance
 pandas
 numpy
 pillow
-aria2p
 youtube-dl
-dotenv
-tempfile
 zipfile
 wget
+pyzipper
