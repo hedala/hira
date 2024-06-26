@@ -1,28 +1,62 @@
-import requests
+import os
+import json
+import subprocess
 from pyrogram import Client, filters
+from aria2p import API, Client as Aria2Client
 
 
-# Function to download video from URL
-def download_video(url, file_name):
-    response = requests.get(url, stream=True)
-    with open(file_name, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                f.write(chunk)
+# Aria2 RPC bilgileri
+ARIA2_RPC_HOST = "http://localhost"
+ARIA2_RPC_PORT = 6800
+ARIA2_RPC_SECRET = "HEDALA"
 
-# Handler for the /url command
-@Client.on_message(filters.command("url") & filters.private)
-def send_video(client, message):
-    if len(message.command) == 2:
-        url = message.command[1]
-        file_name = "downloaded_video.mp4"
-        
-        # Download the video
-        message.reply_text("Video indiriliyor...")
-        download_video(url, file_name)
-        
-        # Send the video
-        message.reply_text("Video gönderiliyor...")
-        client.send_video(chat_id=message.chat.id, video=file_name)
-    else:
-        message.reply_text("Lütfen bir URL sağlayın: /url <link>")
+# Pyrogram istemcisi
+app = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+
+# Aria2 istemcisi
+aria2 = API(
+    Aria2Client(
+        host=ARIA2_RPC_HOST,
+        port=ARIA2_RPC_PORT,
+        secret=ARIA2_RPC_SECRET
+    )
+)
+
+def get_highest_quality_link(video_url):
+    # youtube-dl komutunu çalıştır ve JSON çıktısını al
+    result = subprocess.run(['youtube-dl', '-j', video_url], stdout=subprocess.PIPE)
+    video_info = json.loads(result.stdout)
+    
+    # En yüksek kalitedeki formatı bul
+    highest_quality_format = max(video_info['formats'], key=lambda x: x.get('quality', 0))
+    
+    return highest_quality_format['url']
+
+@Client.on_message(filters.command("url"))
+def download_video(client, message):
+    if len(message.command) < 2:
+        message.reply_text("Lütfen bir URL sağlayın.")
+        return
+    
+    video_url = message.command[1]
+    download_link = get_highest_quality_link(video_url)
+    
+    if not download_link:
+        message.reply_text("İndirilebilir link bulunamadı.")
+        return
+    
+    # Dosyayı indir
+    download = aria2.add_uris([download_link])
+    
+    # İndirme işlemini takip et
+    while not download.is_complete:
+        download.update()
+    
+    # İndirilen dosyanın yolunu al
+    file_path = download.files[0].path
+    
+    # Dosyayı kullanıcıya gönder
+    message.reply_document(document=file_path)
+    
+    # Geçici dosyayı sil
+    os.remove(file_path)
