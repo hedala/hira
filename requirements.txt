@@ -21,8 +21,8 @@ matplotlib
 mplfinance
 pandas
 numpy
-wget
 pillow
 aria2p
 youtube-dl
 dotenv
+wget
