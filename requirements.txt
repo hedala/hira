@@ -24,3 +24,4 @@ numpy
 wget
 pillow
 aria2p
+youtube-dl
