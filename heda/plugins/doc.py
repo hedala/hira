@@ -31,7 +31,7 @@ async def open_file(client, message: Message):
         file_extension = os.path.splitext(file_name)[1].lower()
 
         if file_extension in supported_extensions:
-            file_path = await doc.download()
+            file_path = await message.reply_to_message.download_media()
             with open(file_path, "r") as file:
                 content = file.read()
             
