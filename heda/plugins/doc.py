@@ -45,7 +45,7 @@ async def create_document(client, message: Message):
     if message.reply_to_message:
         text = message.reply_to_message.text
         file_name = message.text.split(" ", maxsplit=1)[1]
-        
+        if text and file_name:
         with open(file_name, "w") as file:
             file.write(text)
         
