@@ -1,6 +1,7 @@
 import os
 from pyrogram import Client, filters
-from pyrogram.types import Message, ParseMode
+from pyrogram.types import Message
+from pyrogram.enums import ParseMode
 from dotenv import load_dotenv
 
 load_dotenv()
