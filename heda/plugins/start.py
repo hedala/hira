@@ -3,12 +3,12 @@ from pyrogram.types import Message
 
 from heda import redis, log
 
-@Client.on_message(filters.command(["sstart"]))
+@Client.on_message(filters.command(["start"]))
 async def handle_start_command(_, message: Message):
     try:
         user_id = message.from_user.id
         start_message = (
-            f"Selam! {message.from_user.mention}\n"
+            f"Merhaba! {message.from_user.mention}\n"
         )
         await message.reply_text(
             text=start_message,
