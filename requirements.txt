@@ -28,3 +28,4 @@ dotenv
 wget
 tempfile
 zipfile
+py7zr
