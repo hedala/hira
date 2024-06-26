@@ -25,3 +25,4 @@ wget
 pillow
 aria2p
 youtube-dl
+dotenv
