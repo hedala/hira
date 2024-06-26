@@ -1,9 +1,9 @@
 import os
-import aiohttp
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message
 
-paste_api_url = "https://api.pastes.dev/post"
+from heda import paste
+
 
 supported_extensions = [
     ".txt", ".py", ".js", ".html", ".css", ".json", ".xml", ".csv", ".tsv",
@@ -14,14 +14,6 @@ supported_extensions = [
     ".asm", ".clj", ".erl", ".ex", ".exs", ".hrl", ".lisp", ".rkt", ".ss", ".scm"
 ]
 
-async def paste_content(content):
-    async with aiohttp.ClientSession() as session:
-        headers = {"Content-Type": "text/plain", "User-Agent": "Telegram Bot"}
-        async with session.post(paste_api_url, data=content, headers=headers) as response:
-            if response.status == 201:
-                return response.headers["Location"]
-            else:
-                return None
 
 @Client.on_message(filters.command("open"))
 async def open_file(client, message: Message):
@@ -38,7 +30,7 @@ async def open_file(client, message: Message):
             if len(content) <= 4000:
                 await message.reply(f"`{content}`", parse_mode=enums.ParseMode.MARKDOWN)
             else:
-                paste_url = await paste_content(content)
+                paste_url = await paste.dpaste(content)
                 if paste_url:
                     await message.reply(f"Dosya içeriği çok uzun. İçeriğe şu adresten ulaşabilirsiniz: {paste_url}")
                 else:
