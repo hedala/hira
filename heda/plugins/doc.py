@@ -2,8 +2,7 @@ import os
 import aiohttp
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message
-
-paste_api_url = "https://dpaste.org/api/"
+from heda import paste
 
 supported_extensions = [
     ".txt", ".py", ".js", ".html", ".css", ".json", ".xml", ".csv", ".tsv",
@@ -13,17 +12,6 @@ supported_extensions = [
     ".cs", ".fs", ".coffee", ".ts", ".dart", ".tex", ".hs", ".lhs", ".agda",
     ".asm", ".clj", ".erl", ".ex", ".exs", ".hrl", ".lisp", ".rkt", ".ss", ".scm"
 ]
-
-async def paste_content(content):
-    async with aiohttp.ClientSession() as session:
-        headers = {"Content-Type": "application/json", "User-Agent": "Telegram Bot"}
-        data = {"content": content, "syntax": "text"}
-        async with session.post(paste_api_url, json=data, headers=headers) as response:
-            if response.status == 201:
-                response_json = await response.json()
-                return response_json.get("url")
-            else:
-                return None
 
 @Client.on_message(filters.command("open"))
 async def open_file(client, message: Message):
