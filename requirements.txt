@@ -25,7 +25,7 @@ pillow
 aria2p
 youtube-dl
 dotenv
-wget
+py7zr
 tempfile
 zipfile
-py7zr
+wget
