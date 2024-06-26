@@ -28,7 +28,7 @@ async def open_file(client, message: Message):
             if len(content) <= 4090:
                 await message.reply(f"`{content}`", parse_mode=enums.ParseMode.MARKDOWN)
             else:
-                paste_url = await paste_content(content)
+                paste_url = await paste.dpaste(content)
                 if paste_url:
                     await message.reply(f"Dosya içeriği çok uzun. İçeriğe şu adresten ulaşabilirsiniz: {paste_url}")
                 else:
