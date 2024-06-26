@@ -1,49 +1,65 @@
 import os
+import aiohttp
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.enums import ParseMode
-from dotenv import load_dotenv
 
-load_dotenv()
+paste_api_url = "https://api.pastes.dev/post"
+
+supported_extensions = [
+    ".txt", ".py", ".js", ".html", ".css", ".json", ".xml", ".csv", ".tsv",
+    ".md", ".rst", ".ini", ".cfg", ".yaml", ".yml", ".toml", ".log", ".sql",
+    ".php", ".rb", ".java", ".cpp", ".c", ".h", ".sh", ".bat", ".ps1", ".vb",
+    ".swift", ".kt", ".go", ".rs", ".scala", ".pl", ".lua", ".r", ".m", ".vba",
+    ".cs", ".fs", ".coffee", ".ts", ".dart", ".tex", ".hs", ".lhs", ".agda",
+    ".asm", ".clj", ".erl", ".ex", ".exs", ".hrl", ".lisp", ".rkt", ".ss", ".scm"
+]
+
+async def paste_content(content):
+    async with aiohttp.ClientSession() as session:
+        headers = {"Content-Type": "text/plain", "User-Agent": "Telegram Bot"}
+        async with session.post(paste_api_url, data=content, headers=headers) as response:
+            if response.status == 201:
+                return response.headers["Location"]
+            else:
+                return None
 
 @Client.on_message(filters.command("open"))
 async def open_file(client, message: Message):
-    if not message.reply_to_message or not message.reply_to_message.document:
-        await message.reply_text("Lütfen bir dosya alıntılayarak komutu kullanın.")
-        return
+    if message.reply_to_message and message.reply_to_message.document:
+        doc = message.reply_to_message.document
+        file_name = doc.file_name
+        file_extension = os.path.splitext(file_name)[1].lower()
 
-    file_id = message.reply_to_message.document.file_id
-    file_path = await client.download_media(file_id)
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            file_content = file.read()
-        await message.reply_text(f"```{file_content}```", parse_mode=ParseMode.MARKDOWN)
-    except Exception as e:
-        await message.reply_text(f"Dosya okunurken hata oluştu: {e}")
-    finally:
-        os.remove(file_path)
+        if file_extension in supported_extensions:
+            file_path = await doc.download()
+            with open(file_path, "r") as file:
+                content = file.read()
+            
+            if len(content) <= 4096:
+                await message.reply(content, parse_mode="html")
+            else:
+                paste_url = await paste_content(content)
+                if paste_url:
+                    await message.reply(f"Dosya içeriği çok uzun. İçeriğe şu adresten ulaşabilirsiniz: {paste_url}")
+                else:
+                    await message.reply("Dosya içeriği yüklenirken bir hata oluştu.")
+            
+            os.remove(file_path)
+        else:
+            await message.reply("Desteklenmeyen dosya türü.")
+    else:
+        await message.reply("Lütfen bir dosyayı yanıtlayın.")
 
 @Client.on_message(filters.command("doc"))
-async def doc_file(client, message: Message):
-    if len(message.command) < 2 or not message.reply_to_message or not message.reply_to_message.text:
-        await message.reply_text("Lütfen bir dosya adı ve metin alıntısı sağlayarak komutu kullanın.")
-        return
-
-    file_name = message.command[1]
-    text = message.reply_to_message.text
-    
-    try:
-        with open(file_name, 'w', encoding='utf-8') as file:
+async def create_document(client, message: Message):
+    if message.reply_to_message:
+        text = message.reply_to_message.text
+        file_name = message.text.split(" ", maxsplit=1)[1]
+        
+        with open(file_name, "w") as file:
             file.write(text)
         
-        await client.send_document(
-            chat_id=message.chat.id,
-            document=file_name,
-            caption="İşte dosyanız"
-        )
-    except Exception as e:
-        await message.reply_text(f"Dosya oluşturulurken hata oluştu: {e}")
-    finally:
-        if os.path.exists(file_name):
-            os.remove(file_name)
+        await message.reply_document(file_name)
+        os.remove(file_name)
+    else:
+        await message.reply("Lütfen bir metni yanıtlayın.")
