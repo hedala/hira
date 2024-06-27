@@ -1,17 +1,9 @@
 import re
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 
 # Video kalitesi seçenekleri
 qualities = ["2160p", "1440p", "1080p", "720p"]
-
-# Kalite butonlarını oluştur
-def create_quality_buttons():
-    buttons = []
-    for quality in qualities:
-        buttons.append([InlineKeyboardButton(quality, callback_data=quality)])
-    return InlineKeyboardMarkup(buttons)
 
 # Video bilgilerini al
 def get_video_info(url):
@@ -48,33 +40,7 @@ async def yt_command(client, message):
         await message.reply("Video bilgileri alınamadı.")
         return
 
-    await message.reply("Lütfen indirmek istediğiniz kaliteyi seçin:", reply_markup=create_quality_buttons())
-
-@Client.on_callback_query(filters.regex(r'^(2160p|1440p|1080p|720p)$'))
-async def callback_query_handler(client, callback_query):
-    try:
-        quality = callback_query.data
-        url = callback_query.message.reply_to_message.command[1]
-        formats = get_video_info(url)
-        best_format = find_best_quality(formats, quality)
-
-        if not best_format:
-            await callback_query.message.reply("Seçilen kalite bulunamadı.")
-            return
-
-        ydl_opts = {
-            'format': best_format['format_id'],
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(url)
-            file_path = ydl.prepare_filename(info_dict)
-
-        await client.send_video(chat_id=callback_query.message.chat.id, video=file_path)
-        await callback_query.message.reply("Video başarıyla indirildi ve gönderildi.")
-    except Exception as e:
-        await callback_query.message.reply(f"Bir hata oluştu: {str(e)}")
+    await message.reply("Hangi kaliteyi indirmek istiyorsunuz? Lütfen 2160p, 1440p, 1080p veya 720p seçeneklerinden birini belirtin.")
 
 @Client.on_message(filters.reply & filters.text & filters.private)
 async def quality_reply_handler(client, message):
