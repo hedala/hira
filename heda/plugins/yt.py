@@ -1,78 +1,40 @@
-import re
 from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 
-# Video kalitesi seçenekleri
-qualities = ["2160p", "1440p", "1080p", "720p"]
-
-# Video bilgilerini al
-def get_video_info(url):
+def get_video_qualities(url):
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',
+        'format': 'bestvideo',
         'noplaylist': True,
-        'quiet': True,
+        'quiet': True
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=False)
-        formats = info_dict.get('formats', [])
-        return formats
-
-# En iyi kaliteyi bul
-def find_best_quality(formats, desired_quality):
-    for format in formats:
-        if format.get('format_note') == desired_quality:
-            return format
-    return None
+        formats = info_dict['formats']
+        quality_buttons = []
+        for f in formats:
+            if f['height'] in [2160, 1440, 1080, 720]:
+                button = InlineKeyboardButton(f"{f['height']}p", callback_data=f"{f['format_id']}")
+                quality_buttons.append(button)
+        return quality_buttons
 
 @Client.on_message(filters.command("yt") & filters.private)
-async def yt_command(client, message):
-    if len(message.command) < 2:
-        await message.reply("Lütfen bir YouTube linki sağlayın.")
-        return
+def youtube_command(client, message):
+    url = message.text.split(' ')[1]
+    quality_buttons = get_video_qualities(url)
+    reply_markup = InlineKeyboardMarkup([quality_buttons])
+    message.reply_text("Choose the quality:", reply_markup=reply_markup)
 
-    url = message.command[1]
-    if not re.match(r'^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$', url):
-        await message.reply("Geçersiz YouTube linki. Lütfen doğru bir link sağlayın.")
-        return
-
-    formats = get_video_info(url)
-    if not formats:
-        await message.reply("Video bilgileri alınamadı.")
-        return
-
-    await message.reply("Hangi kaliteyi indirmek istiyorsunuz? Lütfen 2160p, 1440p, 1080p veya 720p seçeneklerinden birini belirtin.")
-
-@Client.on_message(filters.reply & filters.text & filters.private)
-async def quality_reply_handler(client, message):
-    if message.reply_to_message and "hangi kaliteyi indirmek istiyorsunuz" in message.reply_to_message.text.lower():
-        quality = message.text.strip()
-        if quality not in qualities:
-            await message.reply("Geçersiz kalite seçimi. Lütfen 2160p, 1440p, 1080p veya 720p seçeneklerinden birini belirtin.")
-            return
-
-        if not message.reply_to_message.reply_to_message:
-            await message.reply("Orijinal komut mesajı bulunamadı. Lütfen tekrar deneyin.")
-            return
-
-        url = message.reply_to_message.reply_to_message.command[1]
-        formats = get_video_info(url)
-        best_format = find_best_quality(formats, quality)
-
-        if not best_format:
-            await message.reply("Seçilen kalite bulunamadı.")
-            return
-
-        ydl_opts = {
-            'format': best_format['format_id'],
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
-        }
-
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info_dict = ydl.extract_info(url)
-                file_path = ydl.prepare_filename(info_dict)
-
-            await client.send_video(chat_id=message.chat.id, video=file_path)
-            await message.reply("Video başarıyla indirildi ve gönderildi.")
-        except Exception as e:
-            await message.reply(f"Bir hata oluştu: {str(e)}")
+@Client.on_callback_query()
+def answer(client, callback_query):
+    format_id = callback_query.data
+    url = callback_query.message.reply_to_message.text.split(' ')[1]
+    ydl_opts = {
+        'format': f'{format_id}+bestaudio',
+        'outtmpl': '%(title)s.%(ext)s',
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+        file_name = ydl.prepare_filename(ydl.extract_info(url))
+        callback_query.message.reply_video(video=file_name)
+        callback_query.answer("Downloading and sending your video!")
