@@ -24,7 +24,7 @@ async def download_video(client: Client, message: Message):
         await message.reply("Sadece YouTube ve ok.ru linkleri desteklenmektedir.")
         return
 
-    await message.reply("Video indiriliyor, lütfen bekleyin...")
+    progress_message = await message.reply("Video indiriliyor, lütfen bekleyin...")
 
     ydl_opts = {
         'format': 'bestvideo+bestaudio/best',
@@ -35,8 +35,10 @@ async def download_video(client: Client, message: Message):
     async def send_progress_message():
         while not progress_data.get('completed', False):
             if 'percentage' in progress_data:
-                await message.reply(f"İndirme ilerlemesi: {progress_data['percentage']}, Hız: {progress_data['speed']}, Kalan süre: {progress_data['eta']}")
-            await asyncio.sleep(3)
+                await progress_message.edit_text(
+                    f"İndirme ilerlemesi: {progress_data['percentage']}, Hız: {progress_data['speed']}, Kalan süre: {progress_data['eta']}"
+                )
+            await asyncio.sleep(4)
 
     progress_task = asyncio.create_task(send_progress_message())
 
@@ -47,10 +49,13 @@ async def download_video(client: Client, message: Message):
 
     await progress_task
 
-    await message.reply("Video indirildi, yükleniyor...")
+    await progress_message.edit_text("Video indirildi, yükleniyor...")
 
     async def upload_progress(current, total):
-        await message.reply(f"Yükleme ilerlemesi: {current * 100 / total:.1f}%")
+        if current == total:
+            progress_data['upload_completed'] = True
+        if 'upload_completed' not in progress_data:
+            await progress_message.edit_text(f"Yükleme ilerlemesi: {current * 100 / total:.1f}%")
 
     await client.send_video(
         chat_id=message.chat.id,
