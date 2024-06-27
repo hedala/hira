@@ -4,23 +4,19 @@ from pyrogram.errors import FloodWait
 from pyrogram.enums import ChatMemberStatus
 import time
 
-async def is_admin(client: Client, chat_id: int, user_id: int) -> bool:
+async def is_admin_or_creator(client: Client, chat_id: int, user_id: int) -> bool:
     try:
-        admin_list = {
-            member.user.id
-            async for member in client.get_chat_members(chat_id, filter=ChatMemberStatus.ADMINISTRATOR)
-        }
-        admin_list.add((await client.get_chat(chat_id)).owner_id)  # Grup sahibini de ekleyelim
-        return user_id in admin_list
+        chat_member = await client.get_chat_member(chat_id, user_id)
+        return chat_member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
     except Exception as e:
-        print(f"Admin listesi alınırken hata oluştu: {e}")
+        print(f"Kullanıcı yetkisi kontrol edilirken hata oluştu: {e}")
         return False
 
 @Client.on_message(filters.command("del") & filters.group)
 async def delete_messages(client: Client, message: Message):
-    # Komutu gönderen kişinin admin olup olmadığını kontrol et
-    if not await is_admin(client, message.chat.id, message.from_user.id):
-        await message.reply("Bu komutu sadece adminler kullanabilir.")
+    # Komutu gönderen kişinin admin veya kurucu olup olmadığını kontrol et
+    if not await is_admin_or_creator(client, message.chat.id, message.from_user.id):
+        await message.reply("Bu komutu sadece adminler ve kurucular kullanabilir.")
         return
 
     # Komuttan sayıyı al
