@@ -24,4 +24,3 @@ numpy
 pillow
 youtube-dl
 wget
-subprocess
