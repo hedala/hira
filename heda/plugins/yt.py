@@ -1,13 +1,8 @@
 import os
 import time
-import logging
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 @Client.on_message(filters.command("yt"))
 async def youtube_downloader(client, message):
@@ -40,7 +35,7 @@ async def youtube_downloader(client, message):
         # Create inline buttons for quality selection
         buttons = []
         for q in available_qualities:
-            buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"dl_{link}_{q}")])
+            buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"download_{q}")])
         
         # Send message with quality selection buttons
         await message.reply_text(
@@ -48,25 +43,22 @@ async def youtube_downloader(client, message):
             reply_markup=InlineKeyboardMarkup(buttons)
         )
     except Exception as e:
-        logger.error(f"Error in youtube_downloader: {str(e)}")
         await message.reply_text(f"An error occurred: {str(e)}")
 
 @Client.on_callback_query()
 async def callback_query_handler(client, callback_query):
-    try:
-        # Immediately answer the callback query
-        await callback_query.answer("Processing your request...")
-
-        data = callback_query.data.split("_")
-        if data[0] == "dl":
-            link = data[1]
-            quality = int(data[2])
-            
+    if callback_query.data.startswith("download_"):
+        quality = int(callback_query.data.split("_")[1])
+        
+        # Extract link from the original message
+        link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
+        
+        try:
             # Send download started message
             download_message = await callback_query.message.reply_text("Download started. Please wait...")
             
             # Download video using yt-dlp with progress updates
-            output_file = f"{callback_query.from_user.id}_{quality}.mp4"
+            output_file = f"{callback_query.message.chat.id}_{quality}.mp4"
             start_time = time.time()
             
             def progress_hook(d):
@@ -90,31 +82,21 @@ async def callback_query_handler(client, callback_query):
                 "outtmpl": output_file,
                 "progress_hooks": [progress_hook],
             }
-
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([link])
-                
-                # Send downloaded video to the user
-                await callback_query.message.reply_video(
-                    output_file,
-                    caption=f"Video downloaded in {quality}p quality."
-                )
-                
-                # Clean up the downloaded file
-                os.remove(output_file)
-                
-                # Edit download message to indicate completion
-                await download_message.edit_text("Download completed and video sent!")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([link])
             
-            except Exception as e:
-                logger.error(f"Error during download: {str(e)}")
-                await download_message.edit_text(f"An error occurred during download: {str(e)}")
+            # Send downloaded video to the user
+            await callback_query.message.reply_video(
+                output_file,
+                caption=f"Video downloaded in {quality}p quality."
+            )
+            
+            # Clean up the downloaded file
+            os.remove(output_file)
+            
+            # Edit download message to indicate completion
+            await download_message.edit_text("Download completed and video sent!")
         
-        else:
-            await callback_query.message.reply_text("Invalid callback data")
-    
-    except Exception as e:
-        logger.error(f"Error in callback_query_handler: {str(e)}")
-        await callback_query.message.reply_text(f"An error occurred: {str(e)}")
-        
+        except Exception as e:
+            await callback_query.message.reply_text(f"An error occurred during download: {str(e)}")
+            
