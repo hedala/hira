@@ -5,10 +5,11 @@ import yt_dlp
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# Hata ayıklama için logging ekleyelim
+import logging
+logging.basicConfig(level=logging.INFO)
 
-@Client.on_message(
-    filters.command(["yt"])
-)
+@Client.on_message(filters.command(["yt"]))
 async def youtube_downloader(client, message):
     if len(message.command) < 2:
         await message.reply_text("Please provide a YouTube link.")
@@ -33,47 +34,51 @@ async def youtube_downloader(client, message):
     
     buttons = []
     for q in available_qualities:
-        buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"download_{q}")])
+        buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"yt_download_{q}_{link}")])
     await message.reply_text(
         f"Video: {title}\nSelect the desired quality:",
         reply_markup=InlineKeyboardMarkup(buttons),
         quote=True
     )
 
-
-@Client.on_callback_query(
-    filters.regex("download_(360|480|720|1080|1440|2160)")
-)
+@Client.on_callback_query(filters.regex("^yt_download_"))
 async def callback_query_handler(client, callback_query):
-    quality = int(callback_query.data.split("_")[1])
-    link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
-    
-    download_message = await callback_query.message.edit_text("Download started. Please wait...")
-    start_time = time.time()
-    
-    ydl_opts = {
-        "format": f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]",
-        "merge_output_format": "mp4",
-        "outtmpl": "downloads/%(title)s.%(ext)s",
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(link, download=True)
-        output_file = ydl.prepare_filename(info_dict)
-        duration = info_dict.get("duration")
-        thumbnails = info_dict.get("thumbnails", [])
-        jpg_thumbnails = [t for t in thumbnails if t["url"].endswith(".jpg")][-1]["url"]
-        print(jpg_thumbnails)
-    thumb = wget.download(jpg_thumbnails)
-    await download_message.edit_text("Download completed. Video is being sent...")
-    await callback_query.message.reply_video(
-        video=output_file,
-        caption=f"Video downloaded in {quality}p quality.",
-        duration=duration,
-        thumb=thumb
-    )
+    logging.info(f"Callback query received: {callback_query.data}")
+    try:
+        _, quality, link = callback_query.data.split("_", 2)
+        quality = int(quality)
+        
+        download_message = await callback_query.message.edit_text("Download started. Please wait...")
+        start_time = time.time()
+        
+        ydl_opts = {
+            "format": f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]",
+            "merge_output_format": "mp4",
+            "outtmpl": "downloads/%(title)s.%(ext)s",
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(link, download=True)
+            output_file = ydl.prepare_filename(info_dict)
+            duration = info_dict.get("duration")
+            thumbnails = info_dict.get("thumbnails", [])
+            jpg_thumbnails = [t for t in thumbnails if t["url"].endswith(".jpg")][-1]["url"]
+            logging.info(f"Thumbnail URL: {jpg_thumbnails}")
+        
+        thumb = wget.download(jpg_thumbnails)
+        await download_message.edit_text("Download completed. Video is being sent...")
+        await callback_query.message.reply_video(
+            video=output_file,
+            caption=f"Video downloaded in {quality}p quality.",
+            duration=duration,
+            thumb=thumb
+        )
 
-    await download_message.delete()
-    if os.path.exists(output_file):
-        os.remove(output_file)
-    if os.path.exists(thumb):
-        os.remove(thumb)
+        await download_message.delete()
+        if os.path.exists(output_file):
+            os.remove(output_file)
+        if os.path.exists(thumb):
+            os.remove(thumb)
+    except Exception as e:
+        logging.error(f"Error in callback query handler: {str(e)}")
+        await callback_query.message.reply_text(f"An error occurred: {str(e)}")
+
