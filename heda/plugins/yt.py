@@ -47,11 +47,20 @@ async def youtube_downloader(client, message):
 
 @Client.on_callback_query()
 async def callback_query_handler(client, callback_query):
+    print("Callback query received:", callback_query.data)  # Debugging statement
+    
     if callback_query.data.startswith("download_"):
         quality = int(callback_query.data.split("_")[1])
+        print("Selected quality:", quality)  # Debugging statement
         
         # Extract link from the original message
-        link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
+        try:
+            link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
+        except AttributeError:
+            await callback_query.answer("Error: Could not find the video link.")
+            return
+        
+        print("Extracted link:", link)  # Debugging statement
         
         try:
             # Send download started message
