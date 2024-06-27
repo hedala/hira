@@ -50,6 +50,10 @@ async def quality_reply_handler(client, message):
             await message.reply("Geçersiz kalite seçimi. Lütfen 2160p, 1440p, 1080p veya 720p seçeneklerinden birini belirtin.")
             return
 
+        if not message.reply_to_message.reply_to_message:
+            await message.reply("Orijinal komut mesajı bulunamadı. Lütfen tekrar deneyin.")
+            return
+
         url = message.reply_to_message.reply_to_message.command[1]
         formats = get_video_info(url)
         best_format = find_best_quality(formats, quality)
