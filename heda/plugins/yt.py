@@ -3,7 +3,6 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 
-
 # Video kalitesi seçenekleri
 qualities = ["2160p", "1440p", "1080p", "720p"]
 
@@ -76,3 +75,34 @@ async def callback_query_handler(client, callback_query):
         await callback_query.message.reply("Video başarıyla indirildi ve gönderildi.")
     except Exception as e:
         await callback_query.message.reply(f"Bir hata oluştu: {str(e)}")
+
+@Client.on_message(filters.reply & filters.text & filters.private)
+async def quality_reply_handler(client, message):
+    if message.reply_to_message and "hangi kaliteyi indirmek istiyorsunuz" in message.reply_to_message.text.lower():
+        quality = message.text.strip()
+        if quality not in qualities:
+            await message.reply("Geçersiz kalite seçimi. Lütfen 2160p, 1440p, 1080p veya 720p seçeneklerinden birini belirtin.")
+            return
+
+        url = message.reply_to_message.reply_to_message.command[1]
+        formats = get_video_info(url)
+        best_format = find_best_quality(formats, quality)
+
+        if not best_format:
+            await message.reply("Seçilen kalite bulunamadı.")
+            return
+
+        ydl_opts = {
+            'format': best_format['format_id'],
+            'outtmpl': 'downloads/%(title)s.%(ext)s',
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url)
+                file_path = ydl.prepare_filename(info_dict)
+
+            await client.send_video(chat_id=message.chat.id, video=file_path)
+            await message.reply("Video başarıyla indirildi ve gönderildi.")
+        except Exception as e:
+            await message.reply(f"Bir hata oluştu: {str(e)}")
