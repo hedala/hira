@@ -45,9 +45,9 @@ async def youtube_downloader(client, message):
     except Exception as e:
         await message.reply_text(f"An error occurred: {str(e)}")
 
-@Client.on_callback_query(filters.regex("download_(360|480|720|1080|1440|2160)"))
+@Client.on_callback_query()
 async def callback_query_handler(client, callback_query):
-        print("Hello")
+    if callback_query.data.startswith("download_"):
         quality = int(callback_query.data.split("_")[1])
         link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
         
@@ -78,7 +78,7 @@ async def callback_query_handler(client, callback_query):
             ydl_opts = {
                 "format": f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]",
                 "outtmpl": output_file,
-               # "progress_hooks": [progress_hook],
+                "progress_hooks": [progress_hook],
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([link])
