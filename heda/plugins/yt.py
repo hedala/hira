@@ -14,7 +14,7 @@ def get_best_videos(youtube_url):
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(youtube_url, download=False)
-        formats = sorted(info['formats'], key=lambda x: x.get('height', 0), reverse=True)
+        formats = sorted(info['formats'], key=lambda x: (x.get('height') or 0), reverse=True)
         best_formats = formats[:4]
         
         video_data = []
@@ -30,7 +30,12 @@ def get_best_videos(youtube_url):
 
 @Client.on_message(filters.command("yt") & filters.private)
 def yt_command(client, message):
-    youtube_url = message.text.split()[1]
+    try:
+        youtube_url = message.text.split()[1]
+    except IndexError:
+        message.reply("Lütfen geçerli bir YouTube linki sağlayın. Kullanım: /yt <youtube_link>")
+        return
+    
     best_videos = get_best_videos(youtube_url)
     
     # Kullanıcıya video seçeneklerini sunmak için butonları oluştur
