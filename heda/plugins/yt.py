@@ -4,6 +4,9 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 
+# Dictionary to store links associated with message IDs
+link_storage = {}
+
 @Client.on_message(filters.command("yt"))
 async def youtube_downloader(client, message):
     if len(message.command) < 2:
@@ -35,7 +38,10 @@ async def youtube_downloader(client, message):
         # Create inline buttons for quality selection
         buttons = []
         for q in available_qualities:
-            buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"download_{q}")])
+            buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"download_{q}_{message.message_id}")])
+        
+        # Store the link associated with the message ID
+        link_storage[message.message_id] = link
         
         # Send message with quality selection buttons
         await message.reply_text(
@@ -47,20 +53,17 @@ async def youtube_downloader(client, message):
 
 @Client.on_callback_query()
 async def callback_query_handler(client, callback_query):
-    print("Callback query received:", callback_query.data)  # Debugging statement
-    
     if callback_query.data.startswith("download_"):
-        quality = int(callback_query.data.split("_")[1])
-        print("Selected quality:", quality)  # Debugging statement
+        data_parts = callback_query.data.split("_")
+        quality = int(data_parts[1])
+        message_id = int(data_parts[2])
         
-        # Extract link from the original message
-        try:
-            link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
-        except AttributeError:
-            await callback_query.answer("Error: Could not find the video link.")
+        # Retrieve the link from storage
+        link = link_storage.get(message_id)
+        
+        if not link:
+            await callback_query.message.reply_text("Failed to retrieve the YouTube link.")
             return
-        
-        print("Extracted link:", link)  # Debugging statement
         
         try:
             # Send download started message
@@ -108,4 +111,4 @@ async def callback_query_handler(client, callback_query):
         
         except Exception as e:
             await callback_query.message.reply_text(f"An error occurred during download: {str(e)}")
-            
+
