@@ -38,10 +38,10 @@ async def youtube_downloader(client, message):
         # Create inline buttons for quality selection
         buttons = []
         for q in available_qualities:
-            buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"download_{q}_{message.message_id}")])
+            buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"download_{q}_{message.id}")])
         
         # Store the link associated with the message ID
-        link_storage[message.message_id] = link
+        link_storage[message.id] = link
         
         # Send message with quality selection buttons
         await message.reply_text(
