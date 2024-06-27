@@ -1,32 +1,43 @@
 import os
-import subprocess
 from pyrogram import Client, filters
+from pyrogram.types import Message
+from yt_dlp import YoutubeDL
 
-def download_video(video_url):
-    # yt-dlp komutunu çalıştır ve videoyu indir
-    result = subprocess.run(['yt-dlp', '-f', 'best', video_url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0:
-        return None
-    # İndirilen dosyanın adını al
-    output = result.stdout.decode('utf-8')
-    file_name = output.split("Destination: ")[-1].strip()
-    return file_name
+# İndirme ilerlemesini takip etmek için bir callback fonksiyonu
+def progress_hook(d):
+    if d['status'] == 'downloading':
+        percentage = d['_percent_str']
+        print(f"İndirme ilerlemesi: {percentage}")
 
-@Client.on_message(filters.command("url"))
-def handle_url(client, message):
+@Client.on_message(filters.command("url") & filters.private)
+async def download_video(client: Client, message: Message):
     if len(message.command) < 2:
-        message.reply_text("Lütfen bir URL sağlayın.")
+        await message.reply("Lütfen bir link sağlayın.")
         return
-    
-    video_url = message.command[1]
-    file_name = download_video(video_url)
-    
-    if not file_name:
-        message.reply_text("Video indirilemedi.")
+
+    url = message.command[1]
+    if "youtube.com" not in url and "ok.ru" not in url:
+        await message.reply("Sadece YouTube ve ok.ru linkleri desteklenmektedir.")
         return
-    
-    # Dosyayı kullanıcıya gönder
-    message.reply_document(document=file_name)
-    
-    # Geçici dosyayı sil
-    os.remove(file_name)
+
+    await message.reply("Video indiriliyor, lütfen bekleyin...")
+
+    ydl_opts = {
+        'format': 'best',
+        'progress_hooks': [progress_hook],
+        'outtmpl': 'downloads/%(title)s.%(ext)s',
+    }
+
+    with YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=True)
+        video_title = ydl.prepare_filename(info_dict)
+
+    await message.reply("Video indirildi, yükleniyor...")
+
+    await client.send_video(
+        chat_id=message.chat.id,
+        video=video_title,
+        caption="İşte videonuz!"
+    )
+
+    os.remove(video_title)
