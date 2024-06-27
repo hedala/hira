@@ -35,9 +35,12 @@ async def download_video(client: Client, message: Message):
     async def send_progress_message():
         while not progress_data.get('completed', False):
             if 'percentage' in progress_data:
-                await progress_message.edit_text(
-                    f"İndirme ilerlemesi: {progress_data['percentage']}, Hız: {progress_data['speed']}, Kalan süre: {progress_data['eta']}"
-                )
+                try:
+                    await progress_message.edit_text(
+                        f"İndirme ilerlemesi: {progress_data['percentage']}, Hız: {progress_data['speed']}, Kalan süre: {progress_data['eta']}"
+                    )
+                except Exception as e:
+                    print(f"Error updating progress message: {e}")
             await asyncio.sleep(4)
 
     progress_task = asyncio.create_task(send_progress_message())
@@ -55,7 +58,16 @@ async def download_video(client: Client, message: Message):
         if current == total:
             progress_data['upload_completed'] = True
         if 'upload_completed' not in progress_data:
-            await progress_message.edit_text(f"Yükleme ilerlemesi: {current * 100 / total:.1f}%")
+            try:
+                await progress_message.edit_text(f"Yükleme ilerlemesi: {current * 100 / total:.1f}%")
+            except Exception as e:
+                print(f"Error updating upload progress message: {e}")
+
+    async def send_upload_progress_message():
+        while not progress_data.get('upload_completed', False):
+            await asyncio.sleep(5)
+
+    upload_progress_task = asyncio.create_task(send_upload_progress_message())
 
     await client.send_video(
         chat_id=message.chat.id,
@@ -63,5 +75,7 @@ async def download_video(client: Client, message: Message):
         caption="İşte videonuz!",
         progress=upload_progress
     )
+
+    await upload_progress_task
 
     os.remove(video_title)
