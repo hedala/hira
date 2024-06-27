@@ -1,76 +1,69 @@
-import os
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 
-# Video bilgilerini ve linklerini tutmak için bir dictionary
-video_options = {}
+# Video kalitesi seçenekleri
+qualities = ["2160p", "1440p", "1080p", "720p"]
 
-# YT-DLP ile en iyi 4 videoyu bulma
-def get_best_videos(youtube_url):
+# Kalite butonlarını oluştur
+def create_quality_buttons():
+    buttons = []
+    for quality in qualities:
+        buttons.append([InlineKeyboardButton(quality, callback_data=quality)])
+    return InlineKeyboardMarkup(buttons)
+
+# Video bilgilerini al
+def get_video_info(url):
     ydl_opts = {
         'format': 'bestvideo+bestaudio/best',
-        'noplaylist': True
+        'noplaylist': True,
+        'quiet': True,
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(youtube_url, download=False)
-        formats = sorted(info['formats'], key=lambda x: (x.get('height') or 0), reverse=True)
-        best_formats = formats[:4]
-        
-        video_data = []
-        for f in best_formats:
-            video_data.append({
-                'url': f['url'],
-                'format_id': f['format_id'],
-                'ext': f['ext'],
-                'height': f.get('height', 'unknown'),
-                'width': f.get('width', 'unknown')
-            })
-    return video_data
+        info_dict = ydl.extract_info(url, download=False)
+        formats = info_dict.get('formats', [])
+        return formats
+
+# En iyi kaliteyi bul
+def find_best_quality(formats, desired_quality):
+    for format in formats:
+        if format.get('format_note') == desired_quality:
+            return format
+    return None
 
 @Client.on_message(filters.command("yt") & filters.private)
-def yt_command(client, message):
-    try:
-        youtube_url = message.text.split()[1]
-    except IndexError:
-        message.reply("Lütfen geçerli bir YouTube linki sağlayın. Kullanım: /yt <youtube_link>")
+async def yt_command(client, message):
+    if len(message.command) < 2:
+        await message.reply("Lütfen bir YouTube linki sağlayın.")
         return
-    
-    best_videos = get_best_videos(youtube_url)
-    
-    # Kullanıcıya video seçeneklerini sunmak için butonları oluştur
-    buttons = []
-    for i, video in enumerate(best_videos):
-        button_text = f"{video['height']}p"
-        buttons.append([InlineKeyboardButton(button_text, callback_data=f"video_{i}")])
-    
-    video_options[message.from_user.id] = best_videos
-    message.reply("Videoyu hangi kalitede indirmek istiyorsunuz?", reply_markup=InlineKeyboardMarkup(buttons))
+
+    url = message.command[1]
+    formats = get_video_info(url)
+    if not formats:
+        await message.reply("Video bilgileri alınamadı.")
+        return
+
+    await message.reply("Lütfen indirmek istediğiniz kaliteyi seçin:", reply_markup=create_quality_buttons())
 
 @Client.on_callback_query()
-def callback_query(client, callback_query):
-    user_id = callback_query.from_user.id
-    data = callback_query.data
-    
-    if user_id not in video_options:
-        callback_query.answer("Videoyu indirme seçenekleri bulunamadı.", show_alert=True)
+async def callback_query_handler(client, callback_query):
+    quality = callback_query.data
+    url = callback_query.message.reply_to_message.command[1]
+    formats = get_video_info(url)
+    best_format = find_best_quality(formats, quality)
+
+    if not best_format:
+        await callback_query.message.reply("Seçilen kalite bulunamadı.")
         return
-    
-    if data.startswith("video_"):
-        index = int(data.split("_")[1])
-        selected_video = video_options[user_id][index]
-        
-        # Video dosyasını indir
-        ydl_opts = {
-            'format': selected_video['format_id'],
-            'outtmpl': f"{selected_video['format_id']}.{selected_video['ext']}"
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([callback_query.message.text.split()[1]])
-        
-        # Kullanıcıya videoyu gönder
-        video_file = f"{selected_video['format_id']}.{selected_video['ext']}"
-        client.send_video(user_id, video_file)
-        
-        # Geçici video dosyasını sil
-        os.remove(video_file)
+
+    ydl_opts = {
+        'format': best_format['format_id'],
+        'outtmpl': 'downloads/%(title)s.%(ext)s',
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url)
+        file_path = ydl.prepare_filename(info_dict)
+
+    await client.send_video(chat_id=callback_query.message.chat.id, video=file_path)
+    await callback_query.message.reply("Video başarıyla indirildi ve gönderildi.")
