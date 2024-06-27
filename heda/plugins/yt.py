@@ -45,7 +45,7 @@ async def youtube_downloader(client, message):
     except Exception as e:
         await message.reply_text(f"An error occurred: {str(e)}")
 
-@Client.on_callback_query()
+@Client.on_callback_query(filters.regex("download_(360|480|720|1080|1440|2160)"))
 async def callback_query_handler(client, callback_query):
     if callback_query.data.startswith("download_"):
         print("Hello")
