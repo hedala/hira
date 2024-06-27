@@ -10,10 +10,11 @@ def get_video_qualities(url):
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=False)
-        formats = info_dict['formats']
+        formats = info_dict.get('formats', [])
         quality_buttons = []
         for f in formats:
-            if f['height'] in [2160, 1440, 1080, 720]:
+            # Check if 'height' key exists and is one of the desired resolutions
+            if 'height' in f and f['height'] in [2160, 1440, 1080, 720]:
                 button = InlineKeyboardButton(f"{f['height']}p", callback_data=f"{f['format_id']}")
                 quality_buttons.append(button)
         return quality_buttons
