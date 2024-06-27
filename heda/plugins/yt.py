@@ -47,7 +47,6 @@ async def youtube_downloader(client, message):
 
 @Client.on_callback_query(filters.regex("download_(360|480|720|1080|1440|2160)"))
 async def callback_query_handler(client, callback_query):
-    if callback_query.data.startswith("download_"):
         print("Hello")
         quality = int(callback_query.data.split("_")[1])
         link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
