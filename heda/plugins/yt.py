@@ -78,7 +78,7 @@ async def callback_query_handler(client, callback_query):
             ydl_opts = {
                 "format": f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]",
                 "outtmpl": output_file,
-                "progress_hooks": [progress_hook],
+               # "progress_hooks": [progress_hook],
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([link])
