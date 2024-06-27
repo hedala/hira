@@ -54,6 +54,9 @@ async def youtube_downloader(client, message):
 @Client.on_callback_query()
 async def callback_query_handler(client, callback_query):
     try:
+        # Immediately answer the callback query
+        await callback_query.answer("Processing your request...")
+
         data = callback_query.data.split("_")
         if data[0] == "dl":
             link = data[1]
@@ -87,23 +90,31 @@ async def callback_query_handler(client, callback_query):
                 "outtmpl": output_file,
                 "progress_hooks": [progress_hook],
             }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([link])
+
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([link])
+                
+                # Send downloaded video to the user
+                await callback_query.message.reply_video(
+                    output_file,
+                    caption=f"Video downloaded in {quality}p quality."
+                )
+                
+                # Clean up the downloaded file
+                os.remove(output_file)
+                
+                # Edit download message to indicate completion
+                await download_message.edit_text("Download completed and video sent!")
             
-            # Send downloaded video to the user
-            await callback_query.message.reply_video(
-                output_file,
-                caption=f"Video downloaded in {quality}p quality."
-            )
-            
-            # Clean up the downloaded file
-            os.remove(output_file)
-            
-            # Edit download message to indicate completion
-            await download_message.edit_text("Download completed and video sent!")
+            except Exception as e:
+                logger.error(f"Error during download: {str(e)}")
+                await download_message.edit_text(f"An error occurred during download: {str(e)}")
+        
         else:
-            await callback_query.answer("Invalid callback data")
+            await callback_query.message.reply_text("Invalid callback data")
     
     except Exception as e:
         logger.error(f"Error in callback_query_handler: {str(e)}")
-        await callback_query.message.reply_text(f"An error occurred during download: {str(e)}")
+        await callback_query.message.reply_text(f"An error occurred: {str(e)}")
+        
