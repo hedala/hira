@@ -5,7 +5,11 @@ import yt_dlp
 
 @Client.on_message(filters.command("yt"))
 async def youtube_downloader(client, message):
-    link = message.text.split(" ", maxsplit=1)[1]
+    if len(message.command) < 2:
+        await message.reply_text("Please provide a YouTube link.")
+        return
+    
+    link = message.command[1]
     
     # Extract video info using yt-dlp
     with yt_dlp.YoutubeDL() as ydl:
@@ -18,9 +22,13 @@ async def youtube_downloader(client, message):
     available_qualities = []
     for q in qualities:
         for f in formats:
-            if f["height"] == q:
+            if "height" in f and f["height"] == q:
                 available_qualities.append(q)
                 break
+    
+    if not available_qualities:
+        await message.reply_text("No suitable video formats found.")
+        return
     
     # Create inline buttons for quality selection
     buttons = []
