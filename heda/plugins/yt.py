@@ -1,3 +1,4 @@
+import re
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
@@ -38,6 +39,10 @@ async def yt_command(client, message):
         return
 
     url = message.command[1]
+    if not re.match(r'^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$', url):
+        await message.reply("Geçersiz YouTube linki. Lütfen doğru bir link sağlayın.")
+        return
+
     formats = get_video_info(url)
     if not formats:
         await message.reply("Video bilgileri alınamadı.")
@@ -45,7 +50,7 @@ async def yt_command(client, message):
 
     await message.reply("Lütfen indirmek istediğiniz kaliteyi seçin:", reply_markup=create_quality_buttons())
 
-@Client.on_callback_query()
+@Client.on_callback_query(filters.regex(r'^(2160p|1440p|1080p|720p)$'))
 async def callback_query_handler(client, callback_query):
     quality = callback_query.data
     url = callback_query.message.reply_to_message.command[1]
