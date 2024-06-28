@@ -6,38 +6,18 @@ import json
 game_enabled = False
 active_chat_id = None
 
-# TDK kelime listesini çek ve dosyaya kaydet
-def fetch_tdk_words():
-    words = []
-    base_url = "https://sozluk.gov.tr/gts_id?id="
-    for i in range(1, 100000):  # TDK'da yaklaşık 92-93 bin kelime var
-        response = requests.get(base_url + str(i))
-        if response.status_code == 200:
-            data = response.json()
-            if 'error' not in data:
-                word = data.get('madde')
-                if word:
-                    words.append(word)
-        else:
-            break
-    return words
-
-def save_words_to_file(words, filename="tdk_words.txt"):
-    with open(filename, "w", encoding="utf-8") as file:
-        for word in words:
-            file.write(word + "\n")
-
-def load_words_from_file(filename="tdk_words.txt"):
-    with open(filename, "r", encoding="utf-8") as file:
-        return [line.strip() for line in file]
-
-# Kelimeleri çek ve dosyaya kaydet
-words = fetch_tdk_words()
-save_words_to_file(words)
-print(f"{len(words)} kelime kaydedildi.")
-
-# Dosyadan kelimeleri yükle
-kelime_listesi = load_words_from_file()
+# TDK API'sini kullanarak kelimenin var olup olmadığını kontrol et
+def check_word_in_tdk(word):
+    base_url = "https://sozluk.gov.tr/gts?ara="
+    try:
+        response = requests.get(base_url + word)
+        response.raise_for_status()
+        data = response.json()
+        if data and 'error' not in data:
+            return True
+    except requests.exceptions.RequestException as e:
+        print(f"Error checking word {word}: {e}")
+    return False
 
 # /kelime komutunu dinleyin
 @Client.on_message(filters.command("kelime"))
@@ -64,7 +44,7 @@ async def word_game(client, message):
     global game_enabled, active_chat_id
     if game_enabled and message.chat.id == active_chat_id and not message.text.startswith("/"):
         kelime = message.text.strip().lower()
-        if kelime in kelime_listesi:
+        if check_word_in_tdk(kelime):
             await client.send_reaction(
                 chat_id=message.chat.id,
                 message_id=message.id,
