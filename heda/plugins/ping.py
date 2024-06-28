@@ -1,6 +1,8 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message
 import time
+import os
+import yt_dlp
 
 from heda import redis, log
 
@@ -40,3 +42,34 @@ async def handle_id_command(_, message: Message):
         )
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
+
+@Client.on_message(filters.command(["vid"]))
+async def handle_vid_command(client: Client, message: Message):
+    try:
+        if len(message.command) < 2:
+            await message.reply_text("Lütfen bir YouTube linki sağlayın.")
+            return
+
+        youtube_link = message.command[1]
+        await message.reply_text("Video indiriliyor, lütfen bekleyin...")
+
+        ydl_opts = {
+            'format': 'bestvideo+bestaudio/best',
+            'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'noplaylist': True,
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(youtube_link, download=True)
+            video_title = ydl.prepare_filename(info_dict)
+
+        await message.reply_video(video_title)
+        os.remove(video_title)
+
+        log(__name__).info(
+            f"{message.command[0]} command was called by {message.from_user.full_name} for link {youtube_link}."
+        )
+    except Exception as e:
+        log(__name__).error(f"Error: {str(e)}")
+        await message.reply_text("Bir hata oluştu, lütfen daha sonra tekrar deneyin.")
+        
