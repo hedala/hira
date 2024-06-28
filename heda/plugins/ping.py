@@ -3,7 +3,7 @@ import time
 import wget
 import yt_dlp
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
 from heda import redis, log
 
@@ -45,7 +45,7 @@ async def handle_id_command(_, message: Message):
         log(__name__).error(f"Error: {str(e)}")
 
 @Client.on_message(filters.command(["vid"]))
-async def youtube_downloader(client, message):
+async def youtube_downloader(client, message: Message):
     if len(message.command) < 2:
         await message.reply_text("Please provide a YouTube link.")
         return
