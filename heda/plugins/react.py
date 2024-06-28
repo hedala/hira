@@ -28,7 +28,7 @@ async def react_to_message(client, message):
             await client.send_reaction(
                 chat_id=message.chat.id,
                 message_id=message.id,
-                emoji="❤️"
+                emoji="💘"
             )
         except Exception as e:
             await message.reply(f"Failed to send reaction: {e}")
