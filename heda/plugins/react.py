@@ -1,7 +1,7 @@
 from pyrogram import Client, filters
 
 # Tepki durumu için bir değişken
-react_enabled = True
+react_enabled = False
 
 # /react komutunu dinleyin
 @Client.on_message(filters.command("react"))
