@@ -18,14 +18,22 @@ if not os.path.exists(DOWNLOAD_DIR):
 
 @Client.on_message(filters.command(["yt"]))
 async def youtube_downloader(client, message):
+    logging.info("yt komutu alındı.")
     if len(message.command) < 2:
         await message.reply_text("Please provide a YouTube link.")
         return
     link = message.command[1]
-    with yt_dlp.YoutubeDL() as ydl:
-        info = ydl.extract_info(link, download=False)
-        title = info["title"]
-        formats = info["formats"]
+    logging.info(f"İndirilecek YouTube linki: {link}")
+    try:
+        with yt_dlp.YoutubeDL() as ydl:
+            info = ydl.extract_info(link, download=False)
+            title = info["title"]
+            formats = info["formats"]
+            logging.info(f"Video başlığı: {title}")
+    except Exception as e:
+        logging.error(f"Video bilgisi alınırken hata: {str(e)}")
+        await message.reply_text(f"Error: {str(e)}")
+        return
 
     qualities = [2160, 1440, 1080, 720, 480, 360]
     available_qualities = []
@@ -88,4 +96,7 @@ async def callback_query_handler(client, callback_query):
     except Exception as e:
         logging.error(f"Error in callback query handler: {str(e)}")
         await callback_query.message.reply_text(f"An error occurred: {str(e)}")
-        
+
+if __name__ == "__main__":
+    app.run()
+    
