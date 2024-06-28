@@ -1,3 +1,4 @@
+import requests
 from pyrogram import Client, filters
 import json
 
@@ -5,30 +6,50 @@ import json
 game_enabled = False
 active_chat_id = None
 
-# TDK kelime listesini yükleyin
-kelime_listesi = [
-    "elma", "armut", "muz", "çilek", "kiraz", "karpuz", "kavun", "portakal", "mandalina", "üzüm",
-    "vişne", "şeftali", "kayısı", "erik", "nar", "avokado", "ananas", "kivi", "hindistancevizi", "greyfurt",
-    "limon", "incir", "dut", "ahududu", "böğürtlen", "yabanmersini", "frambuaz", "karadut", "çilek", "kızılcık",
-    "kavun", "karpuz", "üzüm", "elma", "armut", "muz", "çilek", "kiraz", "portakal", "mandalina",
-    "vişne", "şeftali", "kayısı", "erik", "nar", "avokado", "ananas", "kivi", "hindistancevizi", "greyfurt",
-    "limon", "incir", "dut", "ahududu", "böğürtlen", "yabanmersini", "frambuaz", "karadut", "çilek", "kızılcık",
-    "kavun", "karpuz", "üzüm", "elma", "armut", "muz", "çilek", "kiraz", "portakal", "mandalina",
-    "vişne", "şeftali", "kayısı", "erik", "nar", "avokado", "ananas", "kivi", "hindistancevizi", "greyfurt",
-    "limon", "incir", "dut", "ahududu", "böğürtlen", "yabanmersini", "frambuaz", "karadut", "çilek", "kızılcık",
-    "kavun", "karpuz", "üzüm", "elma", "armut", "muz", "çilek", "kiraz", "portakal", "mandalina"
-]
+# TDK kelime listesini çek ve dosyaya kaydet
+def fetch_tdk_words():
+    words = []
+    base_url = "https://sozluk.gov.tr/gts_id?id="
+    for i in range(1, 100000):  # TDK'da yaklaşık 92-93 bin kelime var
+        response = requests.get(base_url + str(i))
+        if response.status_code == 200:
+            data = response.json()
+            if 'error' not in data:
+                word = data.get('madde')
+                if word:
+                    words.append(word)
+        else:
+            break
+    return words
+
+def save_words_to_file(words, filename="tdk_words.txt"):
+    with open(filename, "w", encoding="utf-8") as file:
+        for word in words:
+            file.write(word + "\n")
+
+def load_words_from_file(filename="tdk_words.txt"):
+    with open(filename, "r", encoding="utf-8") as file:
+        return [line.strip() for line in file]
+
+# Kelimeleri çek ve dosyaya kaydet
+words = fetch_tdk_words()
+save_words_to_file(words)
+print(f"{len(words)} kelime kaydedildi.")
+
+# Dosyadan kelimeleri yükle
+kelime_listesi = load_words_from_file()
 
 # /kelime komutunu dinleyin
 @Client.on_message(filters.command("kelime"))
 async def set_game_status(client, message):
     global game_enabled, active_chat_id
     if len(message.command) > 1:
-        if message.command[1].lower() == "on":
+        command = message.command[1].lower()
+        if command == "on":
             game_enabled = True
             active_chat_id = message.chat.id
             await message.reply("Kelime oyunu bu grupta aktif edildi.")
-        elif message.command[1].lower() == "off":
+        elif command == "off":
             game_enabled = False
             active_chat_id = None
             await message.reply("Kelime oyunu devre dışı bırakıldı.")
