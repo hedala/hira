@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Ana help mesajı
-help_message = "Lütfen görmek istediğiniz komut kategorisini seçin:"
+help_message = "Hira Lütfen görmek istediğiniz komut kategorisini seçin:"
 
 # Kripto komutları
 crypto_commands = """
