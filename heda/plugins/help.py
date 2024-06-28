@@ -23,7 +23,7 @@ Genel Komutlar:
 """
 
 @Client.on_message(filters.command(["start"]))
-async def handle_start_command(_, message: Message):
+async def handle_start_command(client: Client, message: Message):
     try:
         user_id = message.from_user.id
         start_message = (
@@ -50,8 +50,8 @@ async def handle_start_command(_, message: Message):
         log(__name__).error(f"Error: {str(e)}")
 
 # Help komutu için işleyici
-@Client.on_message(filters.command("help"))
-async def help_command(client, message):
+@Client.on_message(filters.command(["help"]))
+async def help_command(client: Client, message: Message):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Kripto Komutları", callback_data="crypto_help")],
         [InlineKeyboardButton("Genel Komutlar", callback_data="general_help")]
@@ -61,20 +61,24 @@ async def help_command(client, message):
 
 # Callback query işleyicisi
 @Client.on_callback_query()
-async def callback_query_handler(client, query):
-    if query.data == "crypto_help":
-        await query.answer()
-        await query.message.edit_text(crypto_commands, reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Geri", callback_data="back_to_main")]
-        ]))
-    elif query.data == "general_help":
-        await query.answer()
-        await query.message.edit_text(general_commands, reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Geri", callback_data="back_to_main")]
-        ]))
-    elif query.data == "back_to_main":
-        await query.answer()
-        await query.message.edit_text(help_message, reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Kripto Komutları", callback_data="crypto_help")],
-            [InlineKeyboardButton("Genel Komutlar", callback_data="general_help")]
-        ]))
+async def callback_query_handler(client: Client, query):
+    try:
+        if query.data == "crypto_help":
+            await query.answer()
+            await query.message.edit_text(crypto_commands, reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Geri", callback_data="back_to_main")]
+            ]))
+        elif query.data == "general_help":
+            await query.answer()
+            await query.message.edit_text(general_commands, reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Geri", callback_data="back_to_main")]
+            ]))
+        elif query.data == "back_to_main":
+            await query.answer()
+            await query.message.edit_text(help_message, reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Kripto Komutları", callback_data="crypto_help")],
+                [InlineKeyboardButton("Genel Komutlar", callback_data="general_help")]
+            ]))
+    except Exception as e:
+        log(__name__).error(f"Error: {str(e)}")
+        
