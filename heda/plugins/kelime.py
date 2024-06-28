@@ -47,11 +47,11 @@ async def word_game(client, message):
             await client.send_reaction(
                 chat_id=message.chat.id,
                 message_id=message.id,
-                emoji="✅"
+                emoji="❤️"
             )
         else:
             await client.send_reaction(
                 chat_id=message.chat.id,
                 message_id=message.id,
-                emoji="❌"
+                emoji="💔"
             )
