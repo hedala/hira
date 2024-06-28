@@ -9,6 +9,13 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import logging
 logging.basicConfig(level=logging.INFO)
 
+# İndirilen dosyaların kaydedileceği klasör
+DOWNLOAD_DIR = "downloads"
+
+# Klasörün mevcut olup olmadığını kontrol edelim, yoksa oluşturalım
+if not os.path.exists(DOWNLOAD_DIR):
+    os.makedirs(DOWNLOAD_DIR)
+
 @Client.on_message(filters.command(["yt"]))
 async def youtube_downloader(client, message):
     if len(message.command) < 2:
@@ -54,7 +61,7 @@ async def callback_query_handler(client, callback_query):
         ydl_opts = {
             "format": f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]",
             "merge_output_format": "mp4",
-            "outtmpl": "downloads/%(title)s.%(ext)s",
+            "outtmpl": os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s"),
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
@@ -64,7 +71,7 @@ async def callback_query_handler(client, callback_query):
             jpg_thumbnails = [t for t in thumbnails if t["url"].endswith(".jpg")][-1]["url"]
             logging.info(f"Thumbnail URL: {jpg_thumbnails}")
         
-        thumb = wget.download(jpg_thumbnails)
+        thumb = wget.download(jpg_thumbnails, out=DOWNLOAD_DIR)
         await download_message.edit_text("Download completed. Video is being sent...")
         await callback_query.message.reply_video(
             video=output_file,
@@ -81,4 +88,4 @@ async def callback_query_handler(client, callback_query):
     except Exception as e:
         logging.error(f"Error in callback query handler: {str(e)}")
         await callback_query.message.reply_text(f"An error occurred: {str(e)}")
-
+        
