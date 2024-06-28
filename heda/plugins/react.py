@@ -4,7 +4,6 @@ from pyrogram.raw.types import ReactionEmoji
 
 # Tepki durumu için bir değişken
 react_enabled = True
-
 # /react komutunu dinleyin
 @Client.on_message(filters.command("react"))
 async def set_react_status(client, message):
@@ -22,13 +21,16 @@ async def set_react_status(client, message):
         await message.reply("Invalid command. Use /react on or /react off.")
 
 # Mesajları dinleyin ve tepki verin
-@Client.on_message(filters.text & ~filters.command)
+@Client.on_message(filters.text & ~filters.command())
 async def react_to_message(client, message):
     global react_enabled
     if react_enabled:
         for bot in bots:
-            await bot.invoke(SendReaction(
-                peer=await bot.resolve_peer(message.chat.id),
-                msg_id=message.message_id,
-                reaction=[ReactionEmoji(emoticon='❤️')]
-            ))
+            try:
+                await bot.invoke(SendReaction(
+                    peer=await bot.resolve_peer(message.chat.id),
+                    msg_id=message.message_id,
+                    reaction=ReactionEmoji(emoticon='❤️')
+                ))
+            except Exception as e:
+                await message.reply(f"Failed to send reaction: {e}")
