@@ -96,7 +96,3 @@ async def callback_query_handler(client, callback_query):
     except Exception as e:
         logging.error(f"Error in callback query handler: {str(e)}")
         await callback_query.message.reply_text(f"An error occurred: {str(e)}")
-
-if __name__ == "__main__":
-    app.run()
-    
