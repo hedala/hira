@@ -5,19 +5,28 @@ import yt_dlp
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# Loglama fonksiyonu
+def log(message):
+    print(f"[LOG] {message}")
 
 @Client.on_message(filters.command(["yt"]))
 async def youtube_downloader(client, message):
     try:
+        log("Received /yt command")
+        
         if len(message.command) < 2:
             await message.reply_text("Please provide a YouTube link.")
+            log("No link provided")
             return
 
         link = message.command[1]
+        log(f"Link provided: {link}")
+
         with yt_dlp.YoutubeDL() as ydl:
             info = ydl.extract_info(link, download=False)
             title = info["title"]
             formats = info["formats"]
+            log(f"Video title: {title}")
 
         qualities = [2160, 1440, 1080, 720, 480, 360]
         available_qualities = []
@@ -29,8 +38,9 @@ async def youtube_downloader(client, message):
         
         if not available_qualities:
             await message.reply_text("No suitable video formats found.")
+            log("No suitable video formats found")
             return
-        
+
         buttons = []
         for q in available_qualities:
             buttons.append([InlineKeyboardButton(f"{q}p", callback_data=f"download_{q}")])
@@ -39,15 +49,23 @@ async def youtube_downloader(client, message):
             reply_markup=InlineKeyboardMarkup(buttons),
             quote=True
         )
+        log("Quality selection buttons sent")
+    
     except Exception as e:
         await message.reply_text(f"Error: {str(e)}")
+        log(f"Error in youtube_downloader: {str(e)}")
 
 
 @Client.on_callback_query(filters.regex("download_(360|480|720|1080|1440|2160)"))
 async def callback_query_handler(client, callback_query):
     try:
+        log("Received callback query for download")
+        
         quality = int(callback_query.data.split("_")[1])
+        log(f"Selected quality: {quality}")
+        
         link = callback_query.message.reply_to_message.text.split(" ", maxsplit=1)[1]
+        log(f"Link for download: {link}")
         
         download_message = await callback_query.message.edit_text("Download started. Please wait...")
         start_time = time.time()
@@ -63,7 +81,7 @@ async def callback_query_handler(client, callback_query):
             duration = info_dict.get("duration")
             thumbnails = info_dict.get("thumbnails", [])
             jpg_thumbnails = [t for t in thumbnails if t["url"].endswith(".jpg")][-1]["url"]
-            print(jpg_thumbnails)
+            log(f"Thumbnail URL: {jpg_thumbnails}")
 
         thumb = wget.download(jpg_thumbnails)
         await download_message.edit_text("Download completed. Video is being sent...")
@@ -79,5 +97,8 @@ async def callback_query_handler(client, callback_query):
             os.remove(output_file)
         if os.path.exists(thumb):
             os.remove(thumb)
+        log("Video sent and files cleaned up")
+    
     except Exception as e:
         await callback_query.message.edit_text(f"Error: {str(e)}")
+        log(f"Error in callback_query_handler: {str(e)}")
