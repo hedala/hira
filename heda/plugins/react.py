@@ -24,12 +24,12 @@ async def set_react_status(client, message):
 async def react_to_message(client, message):
     global react_enabled
     if react_enabled and not message.text.startswith("/"):
-        for bot in bots:
-            try:
-                await bot.send_reaction(
-                    chat_id=message.chat.id,
-                    message_id=message.message_id,
-                    emoji="❤️"
-                )
-            except Exception as e:
-                await message.reply(f"Failed to send reaction: {e}")
+        try:
+            await client.send_reaction(
+                chat_id=message.chat.id,
+                message_id=message.message_id,
+                emoji="❤️"
+            )
+        except Exception as e:
+            await message.reply(f"Failed to send reaction: {e}")
+            
