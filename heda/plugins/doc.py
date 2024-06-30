@@ -9,7 +9,7 @@ supported_extensions = [
     ".md", ".rst", ".ini", ".cfg", ".yaml", ".yml", ".toml", ".log", ".sql",
     ".php", ".rb", ".java", ".cpp", ".c", ".h", ".sh", ".bat", ".ps1", ".vb",
     ".swift", ".kt", ".go", ".rs", ".scala", ".pl", ".lua", ".r", ".m", ".vba",
-    ".cs", ".fs", ".coffee", ".ts", ".dart", ".tex", ".hs", ".lhs", ".agda",
+    ".cs", ".fs", ".coffee", ".ts", ".dart", ".tex", ".hs", ".lhs", ".ass",
     ".asm", ".srt", ".erl", ".ex", ".exs", ".hrl", ".lisp", ".rkt", ".ss", ".scm"
 ]
 
