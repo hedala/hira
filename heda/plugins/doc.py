@@ -10,7 +10,7 @@ supported_extensions = [
     ".php", ".rb", ".java", ".cpp", ".c", ".h", ".sh", ".bat", ".ps1", ".vb",
     ".swift", ".kt", ".go", ".rs", ".scala", ".pl", ".lua", ".r", ".m", ".vba",
     ".cs", ".fs", ".coffee", ".ts", ".dart", ".tex", ".hs", ".lhs", ".agda",
-    ".asm", ".clj", ".erl", ".ex", ".exs", ".hrl", ".lisp", ".rkt", ".ss", ".scm"
+    ".asm", ".srt", ".erl", ".ex", ".exs", ".hrl", ".lisp", ".rkt", ".ss", ".scm"
 ]
 
 @Client.on_message(filters.command("open"))
