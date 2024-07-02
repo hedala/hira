@@ -2,6 +2,7 @@ import os
 import time
 import wget
 import yt_dlp
+import speedtest
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 
@@ -41,5 +42,32 @@ async def handle_id_command(_, message: Message):
         log(__name__).info(
             f"{message.command[0]} command was called by {message.from_user.full_name}."
         )
+    except Exception as e:
+        log(__name__).error(f"Error: {str(e)}") 
+
+@Client.on_message(filters.command("speed"))
+async def speed_test(client: Client, message: Message):
+    try:
+        await message.reply_text("Speed test is running, please wait...")
+        
+        st = speedtest.Speedtest()
+        st.download()
+        st.upload()
+        results = st.results.dict()
+
+        download_speed = results["download"] / 1_000_000  # Convert to Mbps
+        upload_speed = results["upload"] / 1_000_000      # Convert to Mbps
+        ping = results["ping"]
+        isp = results["client"]["isp"]
+
+        result_message = (
+            f"**Speedtest Results:**\n\n"
+            f"**ISP:** {isp}\n"
+            f"**Download Speed:** {download_speed:.2f} Mbps\n"
+            f"**Upload Speed:** {upload_speed:.2f} Mbps\n"
+            f"**Ping:** {ping} ms"
+        )
+
+        await message.reply_text(result_message)
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
