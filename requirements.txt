@@ -24,5 +24,6 @@ numpy
 pillow
 youtube-dl
 wget
-speedtest
+speedtest-cli
 rarfile
+
