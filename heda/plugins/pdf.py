@@ -18,10 +18,10 @@ async def send_pdf_pages(client, message):
     # PDF dosyasını indirin
     pdf_path = await client.download_media(pdf_document)
 
-    # PDF dosyasını açın ve ilk 5 sayfayı görüntüye dönüştürün
+    # PDF dosyasını açın ve ilk 10 sayfayı görüntüye dönüştürün
     pdf_document = fitz.open(pdf_path)
     media = []
-    for page_number in range(min(5, len(pdf_document))):
+    for page_number in range(min(10, len(pdf_document))):
         page = pdf_document.load_page(page_number)
         pix = page.get_pixmap()
         img_byte_arr = BytesIO(pix.tobytes("jpeg"))
