@@ -24,3 +24,4 @@ numpy
 pillow
 youtube-dl
 wget
+speedtest
