@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from heda import redis, log
+from heda import log
 
 # Ana help mesajı
 help_message = "Lütfen görmek istediğiniz komut kategorisini seçin:"
@@ -21,33 +21,6 @@ Genel Komutlar:
 /info - Bot hakkında bilgi verir
 /settings - Bot ayarlarını değiştirir
 """
-
-@Client.on_message(filters.command(["start"]))
-async def handle_start_command(client: Client, message: Message):
-    try:
-        user_id = message.from_user.id
-        start_message = (
-            f"Merhaba! {message.from_user.mention}\n"
-        )
-        await message.reply_text(
-            text=start_message,
-            quote=True
-        )
-    
-        log(__name__).info(
-            f"{message.command[0]} command was called by {message.from_user.full_name}."
-        )
-
-        new_user = await redis.is_added(
-            "NEW_USER", user_id
-        )
-        if not new_user:
-            await redis.add_to_db(
-                "NEW_USER", user_id
-            )
-
-    except Exception as e:
-        log(__name__).error(f"Error: {str(e)}")
 
 # Help komutu için işleyici
 @Client.on_message(filters.command(["help"]))
@@ -81,4 +54,3 @@ async def callback_query_handler(client: Client, query):
             ]))
     except Exception as e:
         log(__name__).error(f"Error: {str(e)}")
-        
