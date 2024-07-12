@@ -9,11 +9,9 @@ async def speedtest_command(client: Client, message: Message):
         await message.reply_text("İnternet hızınız test ediliyor, lütfen bekleyin...")
 
         st = speedtest.Speedtest()
-        st.download()  # Download hızını ölçer
-        st.upload()    # Upload hızını ölçer
-
-        download_speed = st.results.download / 1_000_000  # Mbps
-        upload_speed = st.results.upload / 1_000_000      # Mbps
+        st.get_best_server()
+        download_speed = st.download() / 1_000_000  # Mbps
+        upload_speed = st.upload() / 1_000_000      # Mbps
         ping = st.results.ping
 
         speedtest_results = (
