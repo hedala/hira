@@ -25,3 +25,4 @@ pillow
 youtube-dl
 wget
 speedtest
+rarfile
