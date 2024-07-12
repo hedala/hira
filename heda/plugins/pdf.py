@@ -1,7 +1,7 @@
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InputMediaPhoto
-from pdf2image import convert_from_path
+import fitz  # PyMuPDF
 from io import BytesIO
 
 @Client.on_message(filters.command("pdf"))
@@ -18,15 +18,13 @@ async def send_pdf_pages(client, message):
     # PDF dosyasını indirin
     pdf_path = await client.download_media(pdf_document)
 
-    # İlk 5 sayfayı görüntüye dönüştürün
-    images = convert_from_path(pdf_path, first_page=1, last_page=5)
-
-    # Görselleri medyaya dönüştürün
+    # PDF dosyasını açın ve ilk 5 sayfayı görüntüye dönüştürün
+    pdf_document = fitz.open(pdf_path)
     media = []
-    for i, image in enumerate(images):
-        img_byte_arr = BytesIO()
-        image.save(img_byte_arr, format='JPEG')
-        img_byte_arr.seek(0)
+    for page_number in range(min(5, len(pdf_document))):
+        page = pdf_document.load_page(page_number)
+        pix = page.get_pixmap()
+        img_byte_arr = BytesIO(pix.tobytes("jpeg"))
         media.append(InputMediaPhoto(img_byte_arr))
 
     # Medya grubunu gönderin
