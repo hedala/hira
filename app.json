@@ -85,7 +85,7 @@
             "value": "",
             "required": true
         },
-        "GIT_TOKEN=": {
+        "GIT_TOKEN": {
             "description": "",
             "value": "",
             "required": false
