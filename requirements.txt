@@ -25,6 +25,6 @@ pillow
 youtube-dl
 wget
 speedtest-cli
-pdf2image
+pymupdf
 rarfile
 
