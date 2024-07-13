@@ -32,26 +32,25 @@ async def get_profile_photos(client: Client, message: Message):
 
         user = await client.get_users(target)
         
-        photos = []
+        media = []
         async for photo in client.get_chat_photos(user.id):
             file = await client.download_media(photo.file_id)
             file_extension = os.path.splitext(file)[1].lower()
             
             if file_extension in ['.mp4', '.webm']:
-                photos.append(InputMediaVideo(file))
+                media.append(InputMediaVideo(file))
             else:
-                photos.append(InputMediaPhoto(file))
+                media.append(InputMediaPhoto(file))
 
-        if not photos:
+        if not media:
             await message.reply("Bu kullanıcının profil fotoğrafı yok.")
             return
 
-        media_groups = [photos[i:i+10] for i in range(0, len(photos), 10)]
-        
-        for i, media_group in enumerate(media_groups):
-            if i == len(media_groups) - 1:  # Son medya grubu
-                media_group[-1].caption = f"{user.first_name} kullanıcısının {len(photos)} adet profil fotoğrafı gönderildi."
-            await send_media_group_with_retry(message.chat.id, media_group)
+        # Son medya öğesine açıklama ekleme
+        media[-1].caption = f"{user.first_name} kullanıcısının {len(media)} adet profil fotoğrafı."
+
+        # Tüm medyayı tek seferde gönderme
+        await send_media_group_with_retry(message.chat.id, media)
 
     except Exception as e:
         logger.error(f"Bir hata oluştu: {str(e)}")
