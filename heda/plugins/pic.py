@@ -3,7 +3,6 @@ from pyrogram.types import Message, InputMediaPhoto, InputMediaVideo
 from pyrogram.errors import FloodWait
 import asyncio
 import os
-import time
 import logging
 
 # Loglama ayarları
@@ -12,8 +11,6 @@ logger = logging.getLogger(__name__)
 
 @Client.on_message(filters.command("pic"))
 async def get_profile_photos(client: Client, message: Message):
-    start_time = time.time()
-    
     async def send_media_group_with_retry(chat_id, media):
         max_retries = 5
         for attempt in range(max_retries):
@@ -37,10 +34,11 @@ async def get_profile_photos(client: Client, message: Message):
         
         photos = []
         async for photo in client.get_chat_photos(user.id):
-            file = await client.download_media(photo.file_id)
-            if file.lower().endswith(('.mp4', '.webm')):
+            if photo.video:
+                file = await client.download_media(photo.file_id, file_name=f"profile_video_{photo.file_id}.mp4")
                 photos.append(InputMediaVideo(file))
             else:
+                file = await client.download_media(photo.file_id, file_name=f"profile_photo_{photo.file_id}.jpg")
                 photos.append(InputMediaPhoto(file))
 
         if not photos:
@@ -49,16 +47,10 @@ async def get_profile_photos(client: Client, message: Message):
 
         media_groups = [photos[i:i+10] for i in range(0, len(photos), 10)]
         
-        sent_messages = []
         for i, media_group in enumerate(media_groups):
             if i == len(media_groups) - 1:  # Son medya grubu
                 media_group[-1].caption = f"{user.first_name} kullanıcısının {len(photos)} adet profil fotoğrafı gönderildi."
-            sent = await send_media_group_with_retry(message.chat.id, media_group)
-            sent_messages.extend(sent)
-
-        end_time = time.time()
-        duration = end_time - start_time
-        await message.reply(f"İşlem {duration:.2f} saniyede tamamlandı.")
+            await send_media_group_with_retry(message.chat.id, media_group)
 
     except Exception as e:
         logger.error(f"Bir hata oluştu: {str(e)}")
