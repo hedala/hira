@@ -1,43 +1,70 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message, InputMediaPhoto
+from pyrogram.types import Message, InputMediaPhoto, InputMediaVideo
+from pyrogram.errors import FloodWait
+import asyncio
 import os
+import time
 
 @Client.on_message(filters.command("pic"))
 async def get_profile_photos(client: Client, message: Message):
-    # Hedef kullanıcıyı belirleme
-    if message.reply_to_message:
-        target = message.reply_to_message.from_user.id
-    elif len(message.command) > 1:
-        target = message.command[1]
-    else:
-        await message.reply("Lütfen bir kullanıcı ID'si, kullanıcı adı belirtin veya bir mesajı yanıtlayın.")
-        return
+    start_time = time.time()
+    
+    async def send_media_group_with_retry(chat_id, media):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                return await client.send_media_group(chat_id, media=media)
+            except FloodWait as e:
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(e.value)
 
     try:
-        # Kullanıcı bilgilerini alma
+        if message.reply_to_message:
+            target = message.reply_to_message.from_user.id
+        elif len(message.command) > 1:
+            target = message.command[1]
+        else:
+            await message.reply("Lütfen bir kullanıcı ID'si, kullanıcı adı belirtin veya bir mesajı yanıtlayın.")
+            return
+
         user = await client.get_users(target)
         
-        # Profil fotoğraflarını indirme
         photos = []
         async for photo in client.get_chat_photos(user.id):
-            file_path = await client.download_media(photo.file_id, file_name=f"profile_photo_{photo.file_id}.jpg")
-            photos.append(file_path)
+            if photo.video:
+                file = await client.download_media(photo.file_id, file_name=f"profile_video_{photo.file_id}")
+                photos.append(InputMediaVideo(file))
+            else:
+                file = await client.download_media(photo.file_id, file_name=f"profile_photo_{photo.file_id}")
+                photos.append(InputMediaPhoto(file))
 
         if not photos:
             await message.reply("Bu kullanıcının profil fotoğrafı yok.")
             return
 
-        # Fotoğrafları gruplar halinde gönderme
-        for i in range(0, len(photos), 10):
-            media_group = [InputMediaPhoto(photo) for photo in photos[i:i+10]]
-            await client.send_media_group(message.chat.id, media=media_group)
+        media_groups = [photos[i:i+10] for i in range(0, len(photos), 10)]
+        
+        sent_messages = []
+        for i, media_group in enumerate(media_groups):
+            if i == len(media_groups) - 1:  # Son medya grubu
+                media_group[-1].caption = f"{user.first_name} kullanıcısının {len(photos)} adet profil fotoğrafı gönderildi."
+            sent = await send_media_group_with_retry(message.chat.id, media_group)
+            sent_messages.extend(sent)
 
-        # İndirilen dosyaları temizleme
         for photo in photos:
-            os.remove(photo)
+            os.remove(photo.media)
 
-        await message.reply(f"{user.first_name} kullanıcısının {len(photos)} adet profil fotoğrafı gönderildi.")
+        end_time = time.time()
+        duration = end_time - start_time
+        await message.reply(f"İşlem {duration:.2f} saniyede tamamlandı.")
 
     except Exception as e:
         await message.reply(f"Bir hata oluştu: {str(e)}")
-        
+
+    finally:
+        # Temizlik işlemleri
+        for file in os.listdir():
+            if file.startswith("profile_photo_") or file.startswith("profile_video_"):
+                os.remove(file)
+                
