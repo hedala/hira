@@ -34,11 +34,12 @@ async def get_profile_photos(client: Client, message: Message):
         
         photos = []
         async for photo in client.get_chat_photos(user.id):
-            if photo.video:
-                file = await client.download_media(photo.file_id, file_name=f"profile_video_{photo.file_id}.mp4")
+            file = await client.download_media(photo.file_id)
+            file_extension = os.path.splitext(file)[1].lower()
+            
+            if file_extension in ['.mp4', '.webm']:
                 photos.append(InputMediaVideo(file))
             else:
-                file = await client.download_media(photo.file_id, file_name=f"profile_photo_{photo.file_id}.jpg")
                 photos.append(InputMediaPhoto(file))
 
         if not photos:
