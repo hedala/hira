@@ -1,5 +1,5 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, InputMediaPhoto
 import os
 
 @Client.on_message(filters.command("pic"))
@@ -29,7 +29,7 @@ async def get_profile_photos(client: Client, message: Message):
 
         # Fotoğrafları gruplar halinde gönderme
         for i in range(0, len(photos), 10):
-            media_group = [{"type": "photo", "media": photo} for photo in photos[i:i+10]]
+            media_group = [InputMediaPhoto(photo) for photo in photos[i:i+10]]
             await client.send_media_group(message.chat.id, media=media_group)
 
         # İndirilen dosyaları temizleme
@@ -40,4 +40,4 @@ async def get_profile_photos(client: Client, message: Message):
 
     except Exception as e:
         await message.reply(f"Bir hata oluştu: {str(e)}")
-                           
+        
