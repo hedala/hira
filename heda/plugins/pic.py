@@ -4,6 +4,11 @@ from pyrogram.errors import FloodWait
 import asyncio
 import os
 import time
+import logging
+
+# Loglama ayarları
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 @Client.on_message(filters.command("pic"))
 async def get_profile_photos(client: Client, message: Message):
@@ -32,7 +37,7 @@ async def get_profile_photos(client: Client, message: Message):
         
         photos = []
         async for photo in client.get_chat_photos(user.id):
-            if photo.video:
+            if photo.video_sizes:  # Video profil fotoğrafı kontrolü
                 file = await client.download_media(photo.file_id, file_name=f"profile_video_{photo.file_id}")
                 photos.append(InputMediaVideo(file))
             else:
@@ -52,19 +57,20 @@ async def get_profile_photos(client: Client, message: Message):
             sent = await send_media_group_with_retry(message.chat.id, media_group)
             sent_messages.extend(sent)
 
-        for photo in photos:
-            os.remove(photo.media)
-
         end_time = time.time()
         duration = end_time - start_time
         await message.reply(f"İşlem {duration:.2f} saniyede tamamlandı.")
 
     except Exception as e:
-        await message.reply(f"Bir hata oluştu: {str(e)}")
+        logger.error(f"Bir hata oluştu: {str(e)}")
+        await message.reply("İşlem sırasında bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.")
 
     finally:
         # Temizlik işlemleri
         for file in os.listdir():
             if file.startswith("profile_photo_") or file.startswith("profile_video_"):
-                os.remove(file)
-                
+                try:
+                    os.remove(file)
+                except Exception as e:
+                    logger.error(f"Dosya silinirken hata oluştu: {str(e)}")
+                    
