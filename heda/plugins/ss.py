@@ -32,14 +32,17 @@ def get_ss(link, name="screenshot.png"):
     }
 
     response = requests.get("https://api.apilight.com/screenshot/get", params=params, headers=headers)
-    image_data = base64.b64decode(response.text)
+    try:
+        image_data = base64.b64decode(response.text + "===")  # Padding hatasını düzeltmek için
+    except Exception as e:
+        return None, str(e)
 
     image_filename = name
 
     with open(image_filename, "wb") as image_file:
         image_file.write(image_data)
 
-    return image_filename
+    return image_filename, None
 
 @Client.on_message(filters.command("ss") & (filters.private | filters.group))
 async def screenshot(client, message):
@@ -50,7 +53,11 @@ async def screenshot(client, message):
     link = message.command[1]
     progress_message = await message.reply_text("Ekran görüntüsü alınıyor...")
 
-    image_filename = get_ss(link=link)
+    image_filename, error = get_ss(link=link)
+
+    if error:
+        await progress_message.edit_text(f"Ekran görüntüsü alınırken bir hata oluştu: {error}")
+        return
 
     await client.send_photo(message.chat.id, image_filename)
     os.remove(image_filename)
