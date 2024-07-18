@@ -41,14 +41,19 @@ def get_ss(link, name="screenshot.png"):
 
     return image_filename
 
-@Client.on_message(filters.command("ss") & filters.private)
+@Client.on_message(filters.command("ss") & (filters.private | filters.group))
 async def screenshot(client, message):
     if len(message.command) < 2:
         await message.reply_text("Lütfen bir link sağlayın. Örnek kullanım: /ss <link>")
         return
 
     link = message.command[1]
+    progress_message = await message.reply_text("Ekran görüntüsü alınıyor...")
+
     image_filename = get_ss(link=link)
 
     await client.send_photo(message.chat.id, image_filename)
     os.remove(image_filename)
+
+    await progress_message.delete()
+    await message.delete()
