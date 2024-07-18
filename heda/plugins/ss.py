@@ -5,9 +5,6 @@ from user_agent import generate_user_agent
 from pyrogram import Client, filters
 
 def get_ss(link, name="screenshot.png"):
-    if ".png" not in name:
-        name = name + ".png"
-
     headers = {
         "authority": "api.apilight.com",
         "accept": "text/plain, */*; q=0.01",
@@ -44,7 +41,7 @@ def get_ss(link, name="screenshot.png"):
 
     return image_filename, None
 
-@Client.on_message(filters.command("ss") & (filters.private | filters.group))
+@app.on_message(filters.command("ss") & (filters.private | filters.group))
 async def screenshot(client, message):
     if len(message.command) < 2:
         await message.reply_text("Lütfen bir link sağlayın. Örnek kullanım: /ss <link>")
@@ -64,3 +61,4 @@ async def screenshot(client, message):
 
     await progress_message.delete()
     await message.delete()
+
