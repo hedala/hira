@@ -1,64 +1,50 @@
-import os
-import base64
-import requests
-from user_agent import generate_user_agent
 from pyrogram import Client, filters
+from pyrogram.types import Message
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import os
+import time
 
-def get_ss(link, name="screenshot.png"):
-    headers = {
-        "authority": "api.apilight.com",
-        "accept": "text/plain, */*; q=0.01",
-        "accept-language": "en-US,en;q=0.9,ar-EG;q=0.8,ar;q=0.7",
-        "origin": "https://urltoscreenshot.com",
-        "referer": "https://urltoscreenshot.com/",
-        "sec-ch-ua": "'Not-A.Brand';v='99', 'Chromium';v='124'",
-        "sec-ch-ua-mobile": "?1",
-        "sec-ch-ua-platform": "'Android'",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "cross-site",
-        "user-agent": generate_user_agent(),
-        "x-api-key": "j1gIaMwfU545P2ymFWA0gan7yHr7Yla05CJnMheL",
-    }
+@Client.on_message(filters.command("ss"))
+async def take_screenshot(client: Client, message: Message):
+    if len(message.command) != 2:
+        await message.reply_text("Lütfen geçerli bir bağlantı girin. Örnek: /ss https://www.example.com")
+        return
 
-    params = {
-        "url": link,
-        "base64": "1",
-        "width": "1366",
-        "height": "1024",
-    }
+    url = message.command[1]
+    
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
 
-    response = requests.get("https://api.apilight.com/screenshot/get", params=params, headers=headers)
     try:
-        image_data = base64.b64decode(response.text + "===")  # Padding hatasını düzeltmek için
+        # Tarayıcı ayarları
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+
+        # Tarayıcıyı başlat
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.set_window_size(1920, 1080)
+
+        # Sayfayı yükle ve ekran görüntüsü al
+        driver.get(url)
+        time.sleep(3)  # Sayfanın yüklenmesi için bekle
+        screenshot = driver.get_screenshot_as_png()
+
+        # Tarayıcıyı kapat
+        driver.quit()
+
+        # Ekran görüntüsünü kaydet
+        screenshot_path = f"screenshot_{message.id}.png"
+        with open(screenshot_path, "wb") as file:
+            file.write(screenshot)
+
+        # Ekran görüntüsünü gönder
+        await message.reply_photo(screenshot_path, caption=f"Ekran görüntüsü: {url}")
+
+        # Dosyayı sil
+        os.remove(screenshot_path)
+
     except Exception as e:
-        return None, str(e)
-
-    image_filename = name
-
-    with open(image_filename, "wb") as image_file:
-        image_file.write(image_data)
-
-    return image_filename, None
-
-@Client.on_message(filters.command("ss") & (filters.private | filters.group))
-async def screenshot(client, message):
-    if len(message.command) < 2:
-        await message.reply_text("Lütfen bir link sağlayın. Örnek kullanım: /ss <link>")
-        return
-
-    link = message.command[1]
-    progress_message = await message.reply_text("Ekran görüntüsü alınıyor...")
-
-    image_filename, error = get_ss(link=link)
-
-    if error:
-        await progress_message.edit_text(f"Ekran görüntüsü alınırken bir hata oluştu: {error}")
-        return
-
-    await client.send_photo(message.chat.id, image_filename)
-    os.remove(image_filename)
-
-    await progress_message.delete()
-    await message.delete()
-
+        await message.reply_text(f"Bir hata oluştu: {str(e)}")
