@@ -41,7 +41,7 @@ def get_ss(link, name="screenshot.png"):
 
     return image_filename, None
 
-@app.on_message(filters.command("ss") & (filters.private | filters.group))
+@Client.on_message(filters.command("ss") & (filters.private | filters.group))
 async def screenshot(client, message):
     if len(message.command) < 2:
         await message.reply_text("Lütfen bir link sağlayın. Örnek kullanım: /ss <link>")
