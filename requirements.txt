@@ -28,4 +28,5 @@ wget
 speedtest-cli
 pymupdf
 rarfile
+motor
 selenium
